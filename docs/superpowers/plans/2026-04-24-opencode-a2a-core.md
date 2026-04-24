@@ -14,44 +14,63 @@
 
 ---
 
+## ブランチ運用ルール
+
+- **Phase ブランチ**は常に `master` から作成し、`master` をベースとした Draft PR を作成する。
+- 前の Phase の PR が `master` にマージされるまで次の Phase には進まない。
+- **Task ブランチ**は直前の Task ブランチから派生して作成する（Phase 内最初の Task は Phase ブランチから派生）。
+- 各 Task 完了時に Phase ブランチをベースとした Draft PR を作成する。
+
+## Phase 概要
+
+| Phase | 内容 | Phase ブランチ | Task 数 |
+|-------|------|---------------|--------|
+| 0 | CI/CD セットアップ | `feature/phase0__ci-setup__base` | 1 |
+| 1 | プロジェクト基盤 | `feature/phase1__project-scaffold__base` | 3 |
+| 2 | コアモジュール | `feature/phase2__core-modules__base` | 8 |
+| 3 | TaskRunner | `feature/phase3__task-runner__base` | 7 |
+| 4 | 設定とプラグイン | `feature/phase4__config-and-plugin__base` | 3 |
+
+---
+
 ## File Structure (this plan produces)
 
 ```
 opencode-a2a-core/
 ├── .devcontainer/
-│   └── devcontainer.json            [Task 2]
+│   └── devcontainer.json            [P1-T2]
 ├── .github/
-│   └── workflows/ci.yml             [Task 22]
+│   └── workflows/ci.yml             [P0-T1]
 ├── src/
 │   ├── core/
-│   │   ├── a2a-types.ts             [Task 6]
-│   │   ├── errors.ts                [Task 4]
-│   │   ├── logger.ts                [Task 5]
-│   │   ├── plugin-interface.ts      [Task 8]
-│   │   ├── define-plugin.ts         [Task 8]
-│   │   ├── registry.ts              [Task 9]
-│   │   ├── task-store.ts            [Task 10]
-│   │   ├── config-loader.ts         [Task 19]
-│   │   ├── task-runner.ts           [Tasks 12–18]
+│   │   ├── a2a-types.ts             [P2-T3]
+│   │   ├── errors.ts                [P2-T1]
+│   │   ├── logger.ts                [P2-T2]
+│   │   ├── plugin-interface.ts      [P2-T5]
+│   │   ├── define-plugin.ts         [P2-T5]
+│   │   ├── registry.ts              [P2-T6]
+│   │   ├── task-store.ts            [P2-T7]
+│   │   ├── config-loader.ts         [P4-T1]
+│   │   ├── task-runner.ts           [P3-T1–T7]
 │   │   └── helpers/
-│   │       ├── exponential-backoff.ts  [Task 7]
-│   │       └── subprocess.ts           [Task 11]
+│   │       ├── exponential-backoff.ts  [P2-T4]
+│   │       └── subprocess.ts           [P2-T8]
 │   ├── plugins/
-│   │   └── gemini-cli-plugin.ts     [Tasks 20–21]
-│   └── index.ts                     [Task 8 (initial), extended later]
+│   │   └── gemini-cli-plugin.ts     [P4-T2–T3]
+│   └── index.ts                     [P2-T5 (initial), extended later]
 ├── tests/
 │   ├── core/*.test.ts               [co-located per task]
 │   └── integration/
-│       └── gemini-cli-plugin.test.ts [Task 21]
+│       └── gemini-cli-plugin.test.ts [P4-T3]
 ├── tests/fixtures/
-│   └── fake-gemini-cli.mjs          [Task 21]
-├── package.json                     [Task 1]
-├── tsconfig.json                    [Task 1]
-├── tsconfig.build.json              [Task 1]
-├── vitest.config.ts                 [Task 1]
-├── .eslintrc.cjs                    [Task 3]
-├── .prettierrc.json                 [Task 3]
-├── .gitignore                       [Task 1]
+│   └── fake-gemini-cli.mjs          [P4-T3]
+├── package.json                     [P1-T1]
+├── tsconfig.json                    [P1-T1]
+├── tsconfig.build.json              [P1-T1]
+├── vitest.config.ts                 [P1-T1]
+├── .eslintrc.cjs                    [P1-T3]
+├── .prettierrc.json                 [P1-T3]
+├── .gitignore                       [P1-T1]
 └── README.md                        [already present on master]
 ```
 
@@ -62,7 +81,80 @@ opencode-a2a-core/
 
 ---
 
-## Task 1: Scaffold project (package.json, TS, Vitest, gitignore)
+## Phase 0: CI/CD セットアップ
+
+> **Phase ブランチ:** `feature/phase0__ci-setup__base` （`master` から作成）
+> **Phase PR:** `feature/phase0__ci-setup__base` → `master` (Draft)
+
+### Task 1: GitHub Actions CI ワークフロー
+
+> **ブランチ:** `feature/phase0-task1__github-actions` （`feature/phase0__ci-setup__base` から派生）
+> **PR:** → `feature/phase0__ci-setup__base` (Draft)
+
+**Files:**
+- Create: `.github/workflows/ci.yml`
+
+- [ ] **Step 1.1: Create CI workflow**
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+```
+
+- [ ] **Step 1.2: Create `.node-version`**
+
+```
+22
+```
+
+- [ ] **Step 1.3: Commit**
+
+```bash
+git add .github/workflows/ci.yml .node-version
+git commit -m "ci: GitHub Actions CI ワークフローを追加（ubuntu-slim + pnpm）"
+```
+
+- [ ] **Step 1.4: Draft PR を作成**
+
+  `feature/phase0-task1__github-actions` → `feature/phase0__ci-setup__base` へ Draft PR を作成する。
+
+---
+
+## Phase 1: プロジェクト基盤
+
+> **Phase ブランチ:** `feature/phase1__project-scaffold__base` （`master` から作成、Phase 0 の PR が `master` にマージ済みであること）
+> **Phase PR:** `feature/phase1__project-scaffold__base` → `master` (Draft)
+
+### Task 1: Scaffold project (package.json, TS, Vitest, gitignore)
+
+> **ブランチ:** `feature/phase1-task1__scaffold` （`feature/phase1__project-scaffold__base` から派生）
+> **PR:** → `feature/phase1__project-scaffold__base` (Draft)
 
 **Files:**
 - Create: `package.json`
@@ -209,9 +301,16 @@ git add .gitignore .npmrc package.json tsconfig.json tsconfig.build.json vitest.
 git commit -m "chore: scaffold TypeScript/pnpm/Vitest project setup"
 ```
 
+- [ ] **Step 1.10: Draft PR を作成**
+
+  `feature/phase1-task1__scaffold` → `feature/phase1__project-scaffold__base` へ Draft PR を作成する。
+
 ---
 
-## Task 2: Create Devcontainer
+### Task 2: Create Devcontainer
+
+> **ブランチ:** `feature/phase1-task2__devcontainer` （`feature/phase1-task1__scaffold` から派生）
+> **PR:** → `feature/phase1__project-scaffold__base` (Draft)
 
 **Files:**
 - Create: `.devcontainer/devcontainer.json`
@@ -256,9 +355,16 @@ git add .devcontainer/devcontainer.json
 git commit -m "chore: add Devcontainer (Node 22 + pnpm@9 pinned)"
 ```
 
+- [ ] **Step 2.3: Draft PR を作成**
+
+  `feature/phase1-task2__devcontainer` → `feature/phase1__project-scaffold__base` へ Draft PR を作成する。
+
 ---
 
-## Task 3: ESLint + Prettier
+### Task 3: ESLint + Prettier
+
+> **ブランチ:** `feature/phase1-task3__eslint-prettier` （`feature/phase1-task2__devcontainer` から派生）
+> **PR:** → `feature/phase1__project-scaffold__base` (Draft)
 
 **Files:**
 - Create: `.eslintrc.cjs`
@@ -319,9 +425,21 @@ git add .eslintrc.cjs .prettierrc.json .prettierignore
 git commit -m "chore: add ESLint + Prettier config"
 ```
 
+- [ ] **Step 3.6: Draft PR を作成**
+
+  `feature/phase1-task3__eslint-prettier` → `feature/phase1__project-scaffold__base` へ Draft PR を作成する。
+
 ---
 
-## Task 4: Errors module
+## Phase 2: コアモジュール
+
+> **Phase ブランチ:** `feature/phase2__core-modules__base` （`master` から作成、Phase 1 の PR が `master` にマージ済みであること）
+> **Phase PR:** `feature/phase2__core-modules__base` → `master` (Draft)
+
+### Task 1: Errors module
+
+> **ブランチ:** `feature/phase2-task1__errors` （`feature/phase2__core-modules__base` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/errors.ts`
@@ -438,9 +556,16 @@ git add src/core/errors.ts tests/core/errors.test.ts
 git commit -m "feat(core): add A2AError hierarchy + serializeError"
 ```
 
+- [ ] **Step 4.6: Draft PR を作成**
+
+  `feature/phase2-task1__errors` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Task 5: Logger module
+### Task 2: Logger module
+
+> **ブランチ:** `feature/phase2-task2__logger` （`feature/phase2-task1__errors` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/logger.ts`
@@ -574,9 +699,16 @@ git add src/core/logger.ts tests/core/logger.test.ts
 git commit -m "feat(core): add ConsoleLogger with secret-key masking"
 ```
 
+- [ ] **Step 5.6: Draft PR を作成**
+
+  `feature/phase2-task2__logger` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Task 6: A2A Zod types
+### Task 3: A2A Zod types
+
+> **ブランチ:** `feature/phase2-task3__a2a-types` （`feature/phase2-task2__logger` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/a2a-types.ts`
@@ -854,9 +986,16 @@ git add src/core/a2a-types.ts tests/core/a2a-types.test.ts
 git commit -m "feat(core): add A2A v1.0.0 Zod schemas + types"
 ```
 
+- [ ] **Step 6.6: Draft PR を作成**
+
+  `feature/phase2-task3__a2a-types` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Task 7: Exponential backoff helper
+### Task 4: Exponential backoff helper
+
+> **ブランチ:** `feature/phase2-task4__exponential-backoff` （`feature/phase2-task3__a2a-types` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/helpers/exponential-backoff.ts`
@@ -934,9 +1073,16 @@ git add src/core/helpers/exponential-backoff.ts tests/core/helpers/exponential-b
 git commit -m "feat(core): add computeBackoffMs helper"
 ```
 
+- [ ] **Step 7.6: Draft PR を作成**
+
+  `feature/phase2-task4__exponential-backoff` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Task 8: Plugin interface + defineA2APlugin
+### Task 5: Plugin interface + defineA2APlugin
+
+> **ブランチ:** `feature/phase2-task5__plugin-interface` （`feature/phase2-task4__exponential-backoff` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/plugin-interface.ts`
@@ -1050,9 +1196,16 @@ git add src/core/plugin-interface.ts src/core/define-plugin.ts src/index.ts test
 git commit -m "feat(core): add A2APluginInterface + defineA2APlugin + public index"
 ```
 
+- [ ] **Step 8.8: Draft PR を作成**
+
+  `feature/phase2-task5__plugin-interface` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Task 9: PluginRegistry
+### Task 6: PluginRegistry
+
+> **ブランチ:** `feature/phase2-task6__registry` （`feature/phase2-task5__plugin-interface` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/registry.ts`
@@ -1206,9 +1359,16 @@ git add src/core/registry.ts tests/core/registry.test.ts src/index.ts
 git commit -m "feat(core): add PluginRegistry with Zod-validated initialization"
 ```
 
+- [ ] **Step 9.7: Draft PR を作成**
+
+  `feature/phase2-task6__registry` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Task 10: TaskStore (interface + InMemoryTaskStore)
+### Task 7: TaskStore (interface + InMemoryTaskStore)
+
+> **ブランチ:** `feature/phase2-task7__task-store` （`feature/phase2-task6__registry` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/task-store.ts`
@@ -1390,9 +1550,16 @@ git add src/core/task-store.ts tests/core/task-store.test.ts
 git commit -m "feat(core): add TaskStore interface + InMemoryTaskStore"
 ```
 
+- [ ] **Step 10.6: Draft PR を作成**
+
+  `feature/phase2-task7__task-store` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Task 11: JSON-Lines subprocess helper
+### Task 8: JSON-Lines subprocess helper
+
+> **ブランチ:** `feature/phase2-task8__subprocess` （`feature/phase2-task7__task-store` から派生）
+> **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
 - Create: `src/core/helpers/subprocess.ts`
@@ -1581,11 +1748,18 @@ git add src/core/helpers/subprocess.ts tests/core/helpers/subprocess.test.ts tes
 git commit -m "feat(core): add runJsonLinesSubprocess helper with abort + SubprocessError"
 ```
 
+- [ ] **Step 11.8: Draft PR を作成**
+
+  `feature/phase2-task8__subprocess` → `feature/phase2__core-modules__base` へ Draft PR を作成する。
+
 ---
 
-## Tasks 12–18: TaskRunner (behavior-by-behavior TDD)
+## Phase 3: TaskRunner
 
-All Task 12–18 share the same `src/core/task-runner.ts` file. Each task adds **one behavior** (one or more test cases + the minimal implementation to pass them). Do NOT skip ahead; the discipline is one-behavior-at-a-time so the retry semantics get proved incrementally.
+> **Phase ブランチ:** `feature/phase3__task-runner__base` （`master` から作成、Phase 2 の PR が `master` にマージ済みであること）
+> **Phase PR:** `feature/phase3__task-runner__base` → `master` (Draft)
+
+All Phase 3 tasks share the same `src/core/task-runner.ts` file. Each task adds **one behavior** (one or more test cases + the minimal implementation to pass them). Do NOT skip ahead; the discipline is one-behavior-at-a-time so the retry semantics get proved incrementally.
 
 **Shared test helper** — create this ONCE at the start of Task 12 and reuse across tasks:
 
@@ -1636,7 +1810,10 @@ export { ConsoleLogger };
 
 ---
 
-### Task 12: TaskRunner — happy path (1st attempt success)
+### Task 1: TaskRunner — happy path (1st attempt success)
+
+> **ブランチ:** `feature/phase3-task1__happy-path` （`feature/phase3__task-runner__base` から派生）
+> **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 **Files:**
 - Create: `src/core/task-runner.ts` (initial)
@@ -1780,9 +1957,16 @@ git add src/core/task-runner.ts tests/core/_helpers.ts tests/core/task-runner.te
 git commit -m "feat(core): add TaskRunner happy path (1-attempt success)"
 ```
 
+- [ ] **Step 12.7: Draft PR を作成**
+
+  `feature/phase3-task1__happy-path` → `feature/phase3__task-runner__base` へ Draft PR を作成する。
+
 ---
 
-### Task 13: TaskRunner — retry after pre-yield failure
+### Task 2: TaskRunner — retry after pre-yield failure
+
+> **ブランチ:** `feature/phase3-task2__retry` （`feature/phase3-task1__happy-path` から派生）
+> **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 - [ ] **Step 13.1: Add failing test to `tests/core/task-runner.test.ts`**
 
@@ -1928,9 +2112,16 @@ git add src/core/task-runner.ts tests/core/task-runner.test.ts
 git commit -m "feat(core): TaskRunner retries on pre-yield failures"
 ```
 
+- [ ] **Step 13.6: Draft PR を作成**
+
+  `feature/phase3-task2__retry` → `feature/phase3__task-runner__base` へ Draft PR を作成する。
+
 ---
 
-### Task 14: TaskRunner — 3 consecutive failures → FAILED
+### Task 3: TaskRunner — 3 consecutive failures → FAILED
+
+> **ブランチ:** `feature/phase3-task3__all-fail` （`feature/phase3-task2__retry` から派生）
+> **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 - [ ] **Step 14.1: Add failing test**
 
@@ -1980,9 +2171,16 @@ git add tests/core/task-runner.test.ts
 git commit -m "test(core): add 3-attempts-fail → FAILED test for TaskRunner"
 ```
 
+- [ ] **Step 14.4: Draft PR を作成**
+
+  `feature/phase3-task3__all-fail` → `feature/phase3__task-runner__base` へ Draft PR を作成する。
+
 ---
 
-### Task 15: TaskRunner — AbortSignal before execute → CANCELED
+### Task 4: TaskRunner — AbortSignal before execute → CANCELED
+
+> **ブランチ:** `feature/phase3-task4__abort-before` （`feature/phase3-task3__all-fail` から派生）
+> **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 - [ ] **Step 15.1: Add failing test**
 
@@ -2068,9 +2266,16 @@ git add src/core/task-runner.ts tests/core/task-runner.test.ts
 git commit -m "feat(core): TaskRunner emits CANCELED when abort precedes execute"
 ```
 
+- [ ] **Step 15.6: Draft PR を作成**
+
+  `feature/phase3-task4__abort-before` → `feature/phase3__task-runner__base` へ Draft PR を作成する。
+
 ---
 
-### Task 16: TaskRunner — abort during streaming → CANCELED
+### Task 5: TaskRunner — abort during streaming → CANCELED
+
+> **ブランチ:** `feature/phase3-task5__abort-mid-stream` （`feature/phase3-task4__abort-before` から派生）
+> **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 - [ ] **Step 16.1: Add failing test**
 
@@ -2169,9 +2374,16 @@ git add src/core/task-runner.ts tests/core/task-runner.test.ts
 git commit -m "feat(core): TaskRunner emits CANCELED on mid-stream abort"
 ```
 
+- [ ] **Step 16.6: Draft PR を作成**
+
+  `feature/phase3-task5__abort-mid-stream` → `feature/phase3__task-runner__base` へ Draft PR を作成する。
+
 ---
 
-### Task 17: TaskRunner — post-yield error does NOT retry
+### Task 6: TaskRunner — post-yield error does NOT retry
+
+> **ブランチ:** `feature/phase3-task6__post-yield-no-retry` （`feature/phase3-task5__abort-mid-stream` から派生）
+> **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 - [ ] **Step 17.1: Add failing test**
 
@@ -2222,9 +2434,16 @@ git add tests/core/task-runner.test.ts
 git commit -m "test(core): pin post-yield-error-no-retry semantics"
 ```
 
+- [ ] **Step 17.4: Draft PR を作成**
+
+  `feature/phase3-task6__post-yield-no-retry` → `feature/phase3__task-runner__base` へ Draft PR を作成する。
+
 ---
 
-### Task 18: TaskRunner — NonRetriableError and missing plugin → FAILED (no retry)
+### Task 7: TaskRunner — NonRetriableError and missing plugin → FAILED (no retry)
+
+> **ブランチ:** `feature/phase3-task7__non-retriable` （`feature/phase3-task6__post-yield-no-retry` から派生）
+> **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 - [ ] **Step 18.1: Add failing test**
 
@@ -2431,14 +2650,21 @@ git add src/core/task-runner.ts src/index.ts tests/core/task-runner.test.ts
 git commit -m "feat(core): TaskRunner handles NonRetriableError and missing plugin without retry"
 ```
 
+- [ ] **Step 18.8: Draft PR を作成**
+
+  `feature/phase3-task7__non-retriable` → `feature/phase3__task-runner__base` へ Draft PR を作成する。
+
 ---
 
-## Task 19: ConfigLoader
+## Phase 4: 設定とプラグイン
 
-**Files:**
-- Create: `src/core/config-loader.ts`
-- Create: `tests/core/config-loader.test.ts`
-- Create: `tests/fixtures/config.test.json`
+> **Phase ブランチ:** `feature/phase4__config-and-plugin__base` （`master` から作成、Phase 3 の PR が `master` にマージ済みであること）
+> **Phase PR:** `feature/phase4__config-and-plugin__base` → `master` (Draft)
+
+### Task 1: ConfigLoader
+
+> **ブランチ:** `feature/phase4-task1__config-loader` （`feature/phase4__config-and-plugin__base` から派生）
+> **PR:** → `feature/phase4__config-and-plugin__base` (Draft)
 
 - [ ] **Step 19.1: Create fixture — `tests/fixtures/config.test.json`**
 
@@ -2569,15 +2795,22 @@ git add src/core/config-loader.ts tests/core/config-loader.test.ts tests/fixture
 git commit -m "feat(core): add loadConfig with env placeholder resolution"
 ```
 
+- [ ] **Step 19.8: Draft PR を作成**
+
+  `feature/phase4-task1__config-loader` → `feature/phase4__config-and-plugin__base` へ Draft PR を作成する。
+
 ---
 
-## Task 20: GeminiCliPlugin — unit (config + metadata)
+### Task 2: GeminiCliPlugin — unit (config + metadata)
+
+> **ブランチ:** `feature/phase4-task2__gemini-unit` （`feature/phase4-task1__config-loader` から派生）
+> **PR:** → `feature/phase4__config-and-plugin__base` (Draft)
 
 **Files:**
 - Create: `src/plugins/gemini-cli-plugin.ts`
 - Create: `tests/plugins/gemini-cli-plugin.test.ts`
 
-This task covers initialization + metadata only; execution (which spawns a subprocess) is covered as an integration test in Task 21.
+This task covers initialization + metadata only; execution (which spawns a subprocess) is covered as an integration test in Task 3.
 
 - [ ] **Step 20.1: Write the failing test**
 
@@ -2739,9 +2972,16 @@ git add src/plugins/gemini-cli-plugin.ts tests/plugins/gemini-cli-plugin.test.ts
 git commit -m "feat(plugins): add GeminiCliPlugin (config + metadata + execute skeleton)"
 ```
 
+- [ ] **Step 20.6: Draft PR を作成**
+
+  `feature/phase4-task2__gemini-unit` → `feature/phase4__config-and-plugin__base` へ Draft PR を作成する。
+
 ---
 
-## Task 21: GeminiCliPlugin — integration test with fake CLI
+### Task 3: GeminiCliPlugin — integration test with fake CLI
+
+> **ブランチ:** `feature/phase4-task3__gemini-integration` （`feature/phase4-task2__gemini-unit` から派生）
+> **PR:** → `feature/phase4__config-and-plugin__base` (Draft)
 
 **Files:**
 - Create: `tests/fixtures/fake-gemini-cli.mjs`
@@ -2841,86 +3081,51 @@ git add tests/fixtures/fake-gemini-cli.mjs tests/integration/gemini-cli-plugin.t
 git commit -m "test(plugins): integration test for GeminiCliPlugin with fake CLI"
 ```
 
----
+- [ ] **Step 21.7: Draft PR を作成**
 
-## Task 22: CI workflow (devcontainer-based)
-
-**Files:**
-- Create: `.github/workflows/ci.yml`
-
-- [ ] **Step 22.1: Create CI workflow**
-
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: devcontainers/ci@v0.3
-        with:
-          runCmd: |
-            pnpm lint
-            pnpm typecheck
-            pnpm test:coverage
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage
-          path: coverage/
-```
-
-- [ ] **Step 22.2: Commit**
-
-```bash
-git add .github/workflows/ci.yml
-git commit -m "ci: run lint/typecheck/tests inside devcontainer"
-```
+  `feature/phase4-task3__gemini-integration` → `feature/phase4__config-and-plugin__base` へ Draft PR を作成する。
 
 ---
 
 ## Self-Review
 
-**Spec coverage check** (spec section → task(s)):
+**Spec coverage check** (spec section → Phase/Task):
 
-- §2 Architecture / directory layout → Tasks 1, 2, 3 (scaffold), 4–11, 19, 20 (file creation).
-- §3.1 a2a-types.ts (Zod) → Task 6.
-- §3.2 plugin-interface.ts → Task 8.
-- §3.3 define-plugin.ts → Task 8.
-- §3.4 registry.ts → Task 9.
-- §4 TaskRunner (retry, states, abort, non-retriable) → Tasks 12–18.
-- §4.6 Logger → Task 5.
-- §5 HTTP server / SSE / AgentCard / Bearer → **DEFERRED to follow-up plan** (documented in plan header; does not belong to this plan's scope since spec §11 explicitly marks server/* as out of initial delivery).
-- §6.1 TaskStore → Task 10.
-- §6.2 subprocess helper → Task 11.
-- §6.3 GeminiCliPlugin → Tasks 20, 21.
-- §6.4 ConfigLoader → Task 19.
-- §7 Devcontainer → Task 2.
-- §8 Test strategy → Tasks 4–21 (each behavior has targeted test).
-- §9 CI → Task 22.
-- §11 Deliverables (6 files) → Tasks 2, 6, 8, 12–18, 20.
-- §12 Residual risks → Addressed in implementation (subprocess SIGKILL grace, logger secret masking, A2A_PROTOCOL_VERSION constant) across Tasks 5, 6, 11.
+- §2 Architecture / directory layout → P1-T1–T3, P2-T1–T8, P4-T1–T2.
+- §3.1 a2a-types.ts (Zod) → P2-T3.
+- §3.2 plugin-interface.ts → P2-T5.
+- §3.3 define-plugin.ts → P2-T5.
+- §3.4 registry.ts → P2-T6.
+- §4 TaskRunner (retry, states, abort, non-retriable) → P3-T1–T7.
+- §4.6 Logger → P2-T2.
+- §5 HTTP server / SSE / AgentCard / Bearer → **DEFERRED to follow-up plan**.
+- §6.1 TaskStore → P2-T7.
+- §6.2 subprocess helper → P2-T8.
+- §6.3 GeminiCliPlugin → P4-T2–T3.
+- §6.4 ConfigLoader → P4-T1.
+- §7 Devcontainer → P1-T2.
+- §8 Test strategy → P2–P4 (each behavior has targeted test).
+- §9 CI → P0-T1.
+- §11 Deliverables → P1-T2, P2-T3, P2-T5, P3-T1–T7, P4-T2.
+- §12 Residual risks → P2-T2 (secret masking), P2-T3 (protocol version), P2-T8 (SIGKILL grace).
 
-**Placeholder scan:** No `TBD`, `TODO`, or "similar to Task N" stubs. Every step has complete code. Types and function signatures are consistent:
-- `A2APluginInterface` signature fixed in Task 8 and referenced unchanged in Tasks 9, 12, 20.
-- `TaskStore.appendStreamChunk` signature fixed in Task 10 and used in TaskRunner (Tasks 12–18).
-- `computeBackoffMs` signature fixed in Task 7 and used in Task 13.
-- `runJsonLinesSubprocess` signature fixed in Task 11 and used in Task 20.
-- `NonRetriableError` defined in Task 4 and used in Tasks 18, 20.
-- `mkPlugin` / `drain` / `silentLogger` helpers defined in Task 12's `_helpers.ts` and reused in Tasks 13–18, 21.
+**ブランチ運用確認:**
+- 全 Phase ブランチは `master` から作成され、`master` への Draft PR を持つ。
+- 各 Task ブランチは直前の Task から派生（Phase 内最初の Task は Phase base から派生）。
+- 全 Task の最終ステップに Draft PR 作成アクションが含まれている。
+- Phase 0 (CI/CD) が計画の先頭に配置されている。
+- CI ランナーは `ubuntu-slim` を使用。
+- CI トリガーは `master` ブランチを対象。
+
+**Placeholder scan:** No `TBD`, `TODO`, or "similar to Task N" stubs. Every step has complete code.
 
 **Type consistency check:**
-- `TaskRunnerOptions.maxAttempts` (number) — used in Tasks 12–18 consistently.
-- `A2APluginContext` shape — same across plugin usage sites.
-- `GeminiConfigSchema` / `GeminiConfig` — paired in Task 20, reused in Task 21.
+- `A2APluginInterface` signature fixed in P2-T5 and referenced unchanged in P2-T6, P3-T1, P4-T2.
+- `TaskStore.appendStreamChunk` signature fixed in P2-T7 and used in TaskRunner (P3-T1–T7).
+- `computeBackoffMs` signature fixed in P2-T4 and used in P3-T2.
+- `runJsonLinesSubprocess` signature fixed in P2-T8 and used in P4-T2.
+- `NonRetriableError` defined in P2-T1 and used in P3-T7, P4-T2.
+- `mkPlugin` / `drain` / `silentLogger` helpers defined in P3-T1's `_helpers.ts` and reused in P3-T2–T7, P4-T3.
 
 **Scope check:** This plan targets the core library + one plugin example + devcontainer + CI. HTTP server layer (`src/server/*`) is explicitly deferred. A follow-up plan titled `2026-04-24-opencode-a2a-server-adapter.md` (or similar) will implement §5 of the spec.
 
