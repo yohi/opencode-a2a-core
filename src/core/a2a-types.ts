@@ -48,6 +48,7 @@ export type Message = z.infer<typeof MessageSchema>;
 
 // ---- Task state/status ----
 export const TaskStateSchema = z.enum([
+  "TASK_STATE_PENDING",
   "TASK_STATE_SUBMITTED",
   "TASK_STATE_WORKING",
   "TASK_STATE_INPUT_REQUIRED",
@@ -80,7 +81,7 @@ export const TaskSchema = z.object({
   contextId: z.string().optional(),
   status: TaskStatusSchema,
   artifacts: z.array(ArtifactSchema).optional(),
-  history: z.array(MessageSchema).optional(),
+  history: z.array(TaskStatusSchema).optional(),
 });
 export type Task = z.infer<typeof TaskSchema>;
 
