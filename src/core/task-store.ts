@@ -34,10 +34,16 @@ export class InMemoryTaskStore implements TaskStore {
     const existing = this.store.get(id);
     if (!existing) throw new Error(`task not found: ${id}`);
     
-    // Merge into a new object and clone the patch to be safe
+    const clonedPatch = structuredClone(patch);
+    
+    // Merge into a new object. 
+    // If patch contains status, merge it with existing status.
     const updated: Task = { 
       ...existing, 
-      ...structuredClone(patch), 
+      ...clonedPatch,
+      status: clonedPatch.status 
+        ? { ...existing.status, ...clonedPatch.status }
+        : existing.status,
       id: existing.id // protect ID
     };
     this.store.set(id, structuredClone(updated));

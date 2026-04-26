@@ -32,14 +32,22 @@ describe("InMemoryTaskStore", () => {
     expect(await store.get("missing")).toBeUndefined();
   });
 
-  it("update patches and returns new task", async () => {
+  it("update patches and returns new task, preserving nested status fields", async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
+    const originalTimestamp = t.status.timestamp;
+    expect(originalTimestamp).toBeDefined();
+
     const updated = await store.update(t.id, {
       status: { state: "TASK_STATE_WORKING" },
     });
+    
     expect(updated.status.state).toBe("TASK_STATE_WORKING");
-    expect((await store.get(t.id))?.status.state).toBe("TASK_STATE_WORKING");
+    expect(updated.status.timestamp).toBe(originalTimestamp); // Should be preserved
+    
+    const got = await store.get(t.id);
+    expect(got?.status.state).toBe("TASK_STATE_WORKING");
+    expect(got?.status.timestamp).toBe(originalTimestamp);
   });
 
   it("update throws if task missing", async () => {
@@ -102,11 +110,16 @@ describe("InMemoryTaskStore", () => {
   it("appendStreamChunk throws on unhandled kinds", async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
-    // "message" is valid kind in StreamResponse but currently unhandled in TaskStore.appendStreamChunk
-    const chunk = { 
+    
+    // Use Extract for precise type safety instead of unknown casts
+    const chunk: Extract<StreamResponse, { kind: "message" }> = { 
       kind: "message", 
-      message: { role: "ROLE_USER" as const, parts: [{ kind: "text" as const, text: "hi" }] } 
-    } as unknown as StreamResponse;
+      message: { 
+        role: "ROLE_USER", 
+        parts: [{ kind: "text", text: "hi" }] 
+      } 
+    };
+    
     await expect(store.appendStreamChunk(t.id, chunk)).rejects.toThrow(/Unhandled stream chunk kind "message"/);
   });
 
