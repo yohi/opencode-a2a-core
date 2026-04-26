@@ -4,6 +4,12 @@
   "description": "OpenCode拡張のためのA2A共通基盤 & プラグインフレームワーク",
   "main": "dist/index.js",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/index.ts",
@@ -37,3 +43,4 @@
     "@hono/node-server": "^2.0.0"
   }
 }
+
