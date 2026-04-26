@@ -151,22 +151,20 @@ describe("PluginRegistry", () => {
     reg.register(p2);
 
     const promise = reg.disposeAll();
-    await expect(promise).rejects.toThrow(AggregateError);
-    await expect(promise).rejects.toThrow(/One or more plugins failed to dispose/);
 
-    // Verify p2 was still disposed
-    expect(disposed).toEqual(["p2"]);
-
-    // Verify error collection
+    // Verify error collection and type
     try {
       await promise;
+      expect.fail("Should have thrown AggregateError");
     } catch (err) {
-      if (err instanceof AggregateError) {
-        expect(err.errors).toHaveLength(1);
-        expect(err.errors[0].message).toBe("p1 fail");
-      } else {
-        throw new Error("Expected AggregateError");
-      }
+      expect(err).toBeInstanceOf(AggregateError);
+      const aggErr = err as AggregateError;
+      expect(aggErr.message).toMatch(/One or more plugins failed to dispose/);
+      expect(aggErr.errors).toHaveLength(1);
+      expect(aggErr.errors[0].message).toBe("p1 fail");
     }
+
+    // Verify p2 was still disposed even though p1 failed
+    expect(disposed).toEqual(["p2"]);
   });
 });
