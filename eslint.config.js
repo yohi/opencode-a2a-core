@@ -7,4 +7,10 @@ export default tseslint.config(
   {
     ignores: ["dist", "node_modules"],
   },
+  {
+    rules: {
+      "no-console": "warn",
+      "@typescript-eslint/no-unused-vars": "error",
+    },
+  },
 );
