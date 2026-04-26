@@ -44,39 +44,36 @@ describe("runJsonLinesSubprocess", () => {
     const ctl = new AbortController();
     const it = runJsonLinesSubprocess({
       cmd: process.execPath,
-      args: [FIXTURE, "1"],
+      // Use a long sleep so abort definitely interrupts it
+      args: [FIXTURE, "1", "0", "", "5000"],
       abortSignal: ctl.signal,
       stdin: "x",
     });
     
-    // Abort before it can finish
+    // Abort before it can finish naturally
     queueMicrotask(() => ctl.abort());
     
-    // Race drain(it) against a safety timeout. 
-    // drain(it) should terminate quickly (either by resolving or rejecting).
-    const result = await Promise.race([
-      drain(it).then(() => "completed").catch(() => "rejected"),
-      new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000))
-    ]);
-    
-    expect(result).toMatch(/completed|rejected/);
+    // Expect rejection due to abort
+    await expect(drain(it)).rejects.toThrow();
   }, 5000);
 
   it("terminates via timeoutMs", async () => {
     const ctl = new AbortController();
     const it = runJsonLinesSubprocess({
       cmd: process.execPath,
-      args: [FIXTURE, "1"],
+      // Sleep for 2s, but timeout at 100ms
+      args: [FIXTURE, "1", "0", "", "2000"],
       abortSignal: ctl.signal,
       stdin: "x",
       timeoutMs: 100,
     });
     
-    // The fixture might finish before timeout if not careful, but the logic is exercised.
-    // In a real case, we'd use a fixture that sleeps.
     const start = Date.now();
-    await drain(it).catch(() => {});
+    // Rejects with SubprocessError because it's terminated with SIGTERM/SIGKILL (non-zero or null exit)
+    await expect(drain(it)).rejects.toThrow(SubprocessError);
     const duration = Date.now() - start;
+    
+    expect(duration).toBeGreaterThanOrEqual(100);
     expect(duration).toBeLessThan(2000);
   });
 });

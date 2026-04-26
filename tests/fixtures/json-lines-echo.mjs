@@ -6,6 +6,7 @@ import process from 'node:process';
 const count = parseInt(process.argv[2] || '1', 10);
 const exitCode = parseInt(process.argv[3] || '0', 10);
 const stderrMsg = process.argv[4] || '';
+const sleepMs = parseInt(process.argv[5] || '0', 10);
 
 let input = '';
 try {
@@ -23,4 +24,10 @@ if (stderrMsg) {
   process.stderr.write(stderrMsg);
 }
 
-process.exit(exitCode);
+if (sleepMs > 0) {
+  setTimeout(() => {
+    process.exit(exitCode);
+  }, sleepMs);
+} else {
+  process.exit(exitCode);
+}
