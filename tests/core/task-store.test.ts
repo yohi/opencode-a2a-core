@@ -6,7 +6,7 @@ describe("InMemoryTaskStore", () => {
   it("create produces a UUID id and PENDING status", async () => {
     const store = new InMemoryTaskStore();
     const task = await store.create({});
-    expect(task.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(task.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     expect(task.status.state).toBe("TASK_STATE_PENDING");
   });
 
@@ -52,7 +52,9 @@ describe("InMemoryTaskStore", () => {
 
   it("update throws if task missing", async () => {
     const store = new InMemoryTaskStore();
-    await expect(store.update("nope", { status: { state: "TASK_STATE_WORKING" } })).rejects.toThrow();
+    await expect(
+      store.update("nope", { status: { state: "TASK_STATE_WORKING" } })
+    ).rejects.toThrow(/task not found/);
   });
 
   it("appendArtifact protects against input mutation", async () => {
