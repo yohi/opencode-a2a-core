@@ -67,7 +67,7 @@ describe("ConsoleLogger", () => {
   it("handles circular references safely", () => {
     const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const log = new ConsoleLogger({ level: "info" });
-    const circular: any = { a: 1 };
+    const circular: Record<string, unknown> = { a: 1 };
     circular.self = circular;
     
     log.info("circular", { data: circular });
