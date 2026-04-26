@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-/* global console */
+/* global console, setTimeout */
 import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
