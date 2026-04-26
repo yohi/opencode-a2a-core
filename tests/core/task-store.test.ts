@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryTaskStore } from "../../src/core/task-store.js";
-import type { Artifact, TaskStatus } from "../../src/core/a2a-types.js";
+import type { Artifact, TaskStatus, StreamResponse } from "../../src/core/a2a-types.js";
 
 describe("InMemoryTaskStore", () => {
   it("create produces a UUID id and PENDING status", async () => {
@@ -60,7 +60,11 @@ describe("InMemoryTaskStore", () => {
     artifact.parts[0] = { kind: "text", text: "mutated" };
     
     const got = await store.get(t.id);
-    expect((got?.artifacts?.[0].parts[0] as any).text).toBe("original");
+    const part = got?.artifacts?.[0].parts[0];
+    expect(part?.kind).toBe("text");
+    if (part?.kind === "text") {
+      expect(part.text).toBe("original");
+    }
   });
 
   it("appendHistoryEntry protects against input mutation", async () => {
@@ -73,21 +77,36 @@ describe("InMemoryTaskStore", () => {
     await store.appendHistoryEntry(t.id, status);
 
     // Mutate input object deep
-    if (status.message) {
-      (status.message.parts[0] as any).text = "mutated";
+    const originalPart = status.message?.parts[0];
+    if (originalPart?.kind === "text") {
+      // Use explicit interface for mutation to avoid 'any'
+      interface MutableText { text: string }
+      (originalPart as unknown as MutableText).text = "mutated";
     }
 
     const got = await store.get(t.id);
-    expect((got?.status.message?.parts[0] as any).text).toBe("hello");
-    expect((got?.statusHistory?.[0].message?.parts[0] as any).text).toBe("hello");
-    expect((got?.history?.[0].parts[0] as any).text).toBe("hello");
+    
+    // Define validation logic that works on the Message structure
+    const assertMessageIntegrity = (msg: { parts: { kind: string; text?: string }[] } | undefined) => {
+      expect(msg).toBeDefined();
+      const part = msg!.parts[0];
+      expect(part.kind).toBe("text");
+      expect(part.text).toBe("hello");
+    };
+
+    assertMessageIntegrity(got?.status.message);
+    assertMessageIntegrity(got?.statusHistory?.[0].message);
+    assertMessageIntegrity(got?.history?.[0]);
   });
 
   it("appendStreamChunk throws on unhandled kinds", async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     // "message" is valid kind in StreamResponse but currently unhandled in TaskStore.appendStreamChunk
-    const chunk: any = { kind: "message", message: { role: "ROLE_USER", parts: [] } };
+    const chunk = { 
+      kind: "message", 
+      message: { role: "ROLE_USER" as const, parts: [{ kind: "text" as const, text: "hi" }] } 
+    } as unknown as StreamResponse;
     await expect(store.appendStreamChunk(t.id, chunk)).rejects.toThrow(/Unhandled stream chunk kind "message"/);
   });
 
