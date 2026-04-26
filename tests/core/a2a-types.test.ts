@@ -30,6 +30,12 @@ describe("PartSchema discriminated union", () => {
     ).toMatchObject({ kind: "file", file: { name: "a.txt" } });
   });
 
+  it("rejects FilePart without bytes or uri", () => {
+    expect(() =>
+      PartSchema.parse({ kind: "file", file: { name: "a.txt" } }),
+    ).toThrow();
+  });
+
   it("accepts DataPart with arbitrary data", () => {
     const data = { foo: "bar", num: 123 };
     expect(PartSchema.parse({ kind: "data", data })).toEqual({
@@ -51,6 +57,24 @@ describe("MessageSchema", () => {
       parts: [{ kind: "text", text: "hi" }],
     });
     expect(m.role).toBe("ROLE_USER");
+  });
+
+  it("rejects empty parts array", () => {
+    expect(() =>
+      MessageSchema.parse({
+        role: "ROLE_USER",
+        parts: [],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects invalid roles", () => {
+    expect(() =>
+      MessageSchema.parse({
+        role: "INVALID_ROLE",
+        parts: [{ kind: "text", text: "hi" }],
+      }),
+    ).toThrow();
   });
 });
 
@@ -105,12 +129,24 @@ describe("TaskStatusSchema / ArtifactSchema / TaskSchema", () => {
     expect(a.artifactId).toBe("a-1");
   });
 
+  it("rejects Artifact with missing fields or empty parts", () => {
+    expect(() => ArtifactSchema.parse({ parts: [{ kind: "text", text: "ok" }] })).toThrow();
+    expect(() => ArtifactSchema.parse({ artifactId: "a-1" })).toThrow();
+    expect(() => ArtifactSchema.parse({ artifactId: "a-1", parts: [] })).toThrow();
+  });
+
   it("Task requires id and status", () => {
     const t = TaskSchema.parse({
       id: "t-1",
       status: { state: "TASK_STATE_SUBMITTED" },
     });
     expect(t.id).toBe("t-1");
+  });
+
+  it("rejects Task with missing fields or invalid status", () => {
+    expect(() => TaskSchema.parse({ status: { state: "TASK_STATE_SUBMITTED" } })).toThrow();
+    expect(() => TaskSchema.parse({ id: "t-1" })).toThrow();
+    expect(() => TaskSchema.parse({ id: "t-1", status: { state: "INVALID" } })).toThrow();
   });
 });
 
@@ -148,6 +184,13 @@ describe("StreamResponseSchema discriminated union", () => {
         message: { role: "ROLE_AGENT", parts: [{ kind: "text", text: "hi" }] },
       }).kind,
     ).toBe("message");
+  });
+
+  it("rejects StreamResponse when required payload is missing", () => {
+    expect(() => StreamResponseSchema.parse({ kind: "task" })).toThrow();
+    expect(() => StreamResponseSchema.parse({ kind: "status-update" })).toThrow();
+    expect(() => StreamResponseSchema.parse({ kind: "artifact-update" })).toThrow();
+    expect(() => StreamResponseSchema.parse({ kind: "message" })).toThrow();
   });
 
   it("rejects unknown kind", () => {
