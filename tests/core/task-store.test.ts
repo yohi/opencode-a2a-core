@@ -9,6 +9,15 @@ describe("InMemoryTaskStore", () => {
     expect(task.status.state).toBe("TASK_STATE_PENDING");
   });
 
+  it("create returns a defensive copy", async () => {
+    const store = new InMemoryTaskStore();
+    const task = await store.create({});
+    task.status.state = "TASK_STATE_COMPLETED"; // direct mutation
+
+    const got = await store.get(task.id);
+    expect(got?.status.state).toBe("TASK_STATE_PENDING"); // should remain unchanged in store
+  });
+
   it("create preserves contextId", async () => {
     const store = new InMemoryTaskStore();
     const task = await store.create({ contextId: "ctx-1" });

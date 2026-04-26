@@ -21,7 +21,7 @@ export class InMemoryTaskStore implements TaskStore {
       status: { state: "TASK_STATE_PENDING", timestamp: new Date().toISOString() },
     };
     this.store.set(task.id, task);
-    return task;
+    return structuredClone(task);
   }
 
   async get(id: string): Promise<Task | undefined> {
