@@ -8,7 +8,7 @@ export interface Logger {
 }
 
 const LEVELS: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
-const MASK_KEYS = new Set(["apikey", "token", "password", "authorization", "secret", "accesstoken"]);
+const MASK_KEYS = new Set(["apikey", "api_key", "token", "access_token", "refresh_token", "password", "authorization", "secret", "client_secret", "accesstoken"]);
 
 export class ConsoleLogger implements Logger {
   private readonly threshold: number;
