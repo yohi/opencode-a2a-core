@@ -37,12 +37,72 @@ describe("ConsoleLogger", () => {
   it("masks secret-like keys in context", () => {
     const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const log = new ConsoleLogger({ level: "info" });
-    log.info("event", { apiKey: "s3cr3t", token: "abc", safe: "ok" });
+    log.info("event", { 
+      apiKey: "s3cr3t", 
+      api_key: "s3cr3t",
+      token: "abc", 
+      access_token: "at",
+      refresh_token: "rt",
+      client_secret: "cs",
+      safe: "ok",
+      level: "fake", // 予約キーとの衝突
+      auth: { token: "secret" } // ネストされた機密情報
+    });
     const [line] = spy.mock.calls[0] as [string];
     const parsed = JSON.parse(line);
     expect(parsed.apiKey).toBe("***");
+    expect(parsed.api_key).toBe("***");
     expect(parsed.token).toBe("***");
+    expect(parsed.access_token).toBe("***");
+    expect(parsed.refresh_token).toBe("***");
+    expect(parsed.client_secret).toBe("***");
     expect(parsed.safe).toBe("ok");
+    // コアフィールドが優先され、ctx による上書きが防止されていること
+    expect(parsed.level).toBe("info");
+    // ネストされたオブジェクト内もマスクされていること
+    expect(parsed.auth.token).toBe("***");
+    spy.mockRestore();
+  });
+
+  it("handles circular references safely", () => {
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: "info" });
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    
+    log.info("circular", { data: circular });
+    
+    const [line] = spy.mock.calls[0] as [string];
+    const parsed = JSON.parse(line);
+    expect(parsed.data.a).toBe(1);
+    expect(parsed.data.self).toBe("[Circular]");
+    spy.mockRestore();
+  });
+
+  it("handles Error objects in context", () => {
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: "info" });
+    const err = new Error("failed");
+    
+    log.error("oops", { err });
+    
+    const [line] = spy.mock.calls[0] as [string];
+    const parsed = JSON.parse(line);
+    expect(parsed.err.message).toBe("failed");
+    expect(parsed.err.name).toBe("Error");
+    expect(typeof parsed.err.stack).toBe("string");
+    spy.mockRestore();
+  });
+
+  it("handles BigInt in context", () => {
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: "info" });
+    
+    log.info("bigint", { val: BigInt(42) });
+    
+    const [line] = spy.mock.calls[0] as [string];
+    const parsed = JSON.parse(line);
+    expect(parsed.val).toBe("42");
     spy.mockRestore();
   });
 });
