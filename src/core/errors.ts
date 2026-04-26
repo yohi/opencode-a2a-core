@@ -9,8 +9,8 @@ export class A2AError extends Error {
 }
 
 export class NonRetriableError extends A2AError {
-  constructor(message: string) {
-    super("NonRetriable", message);
+  constructor(message: string, code = "NonRetriable") {
+    super(code, message);
     this.name = "NonRetriableError";
   }
 }
@@ -20,22 +20,22 @@ export class SubprocessError extends A2AError {
     public readonly exitCode: number,
     public readonly stderr: string,
   ) {
-    super("SubprocessFailed", `subprocess exited with ${exitCode}: ${stderr}`);
+    super("SubprocessFailed", `subprocess failed with exit code ${exitCode}`);
     this.name = "SubprocessError";
   }
 }
 
 export class TaskNotFoundError extends NonRetriableError {
   constructor(taskId: string) {
-    super(`Task not found: ${taskId}`);
-    this.name = 'TaskNotFoundError';
+    super(`Task not found: ${taskId}`, "TaskNotFound");
+    this.name = "TaskNotFoundError";
   }
 }
 
 export class PluginNotFoundError extends NonRetriableError {
   constructor(pluginId: string) {
-    super(`Plugin not found: ${pluginId}`);
-    this.name = 'PluginNotFoundError';
+    super(`Plugin not found: ${pluginId}`, "PluginNotFound");
+    this.name = "PluginNotFoundError";
   }
 }
 
