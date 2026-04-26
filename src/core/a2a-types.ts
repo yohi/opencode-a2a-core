@@ -81,7 +81,8 @@ export const TaskSchema = z.object({
   contextId: z.string().optional(),
   status: TaskStatusSchema,
   artifacts: z.array(ArtifactSchema).optional(),
-  history: z.array(TaskStatusSchema).optional(),
+  history: z.array(MessageSchema).optional(),
+  statusHistory: z.array(TaskStatusSchema).optional(),
 });
 export type Task = z.infer<typeof TaskSchema>;
 

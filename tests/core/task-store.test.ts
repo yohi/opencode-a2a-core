@@ -49,20 +49,41 @@ describe("InMemoryTaskStore", () => {
     expect(got?.artifacts?.[0].artifactId).toBe("a1");
   });
 
-  it("appendHistoryEntry accumulates status history", async () => {
+  it("get returns a defensive copy", async () => {
+    const store = new InMemoryTaskStore();
+    const t = await store.create({});
+    const got1 = await store.get(t.id);
+    if (got1) {
+      got1.id = "modified";
+    }
+    const got2 = await store.get(t.id);
+    expect(got2?.id).toBe(t.id);
+  });
+
+  it("appendHistoryEntry updates current status and accumulates history", async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     await store.appendHistoryEntry(t.id, { state: "TASK_STATE_WORKING" });
-    await store.appendHistoryEntry(t.id, { state: "TASK_STATE_COMPLETED" });
-    const got = await store.get(t.id);
-    expect(got?.history).toHaveLength(2);
-    expect(got?.history?.[1].state).toBe("TASK_STATE_COMPLETED");
+    const mid = await store.get(t.id);
+    expect(mid?.status.state).toBe("TASK_STATE_WORKING");
+    expect(mid?.statusHistory).toHaveLength(1);
+
+    await store.appendHistoryEntry(t.id, {
+      state: "TASK_STATE_COMPLETED",
+      message: { role: "ROLE_AGENT", parts: [{ kind: "text", text: "done" }] },
+    });
+    const final = await store.get(t.id);
+    expect(final?.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(final?.statusHistory).toHaveLength(2);
+    expect(final?.history).toHaveLength(1);
+    expect(final?.history?.[0].parts[0].kind).toBe("text");
   });
 
-  it("delete removes the task", async () => {
+  it("delete removes the task or throws if missing", async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     await store.delete(t.id);
     expect(await store.get(t.id)).toBeUndefined();
+    await expect(store.delete(t.id)).rejects.toThrow(/task not found/);
   });
 });

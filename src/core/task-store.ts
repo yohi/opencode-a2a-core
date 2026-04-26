@@ -25,7 +25,8 @@ export class InMemoryTaskStore implements TaskStore {
   }
 
   async get(id: string): Promise<Task | undefined> {
-    return this.store.get(id);
+    const task = this.store.get(id);
+    return task ? structuredClone(task) : undefined;
   }
 
   async update(id: string, patch: Partial<Task>): Promise<Task> {
@@ -33,7 +34,7 @@ export class InMemoryTaskStore implements TaskStore {
     if (!existing) throw new Error(`task not found: ${id}`);
     const updated: Task = { ...existing, ...patch, id: existing.id };
     this.store.set(id, updated);
-    return updated;
+    return structuredClone(updated);
   }
 
   async appendArtifact(id: string, artifact: Artifact): Promise<void> {
@@ -53,10 +54,21 @@ export class InMemoryTaskStore implements TaskStore {
   async appendHistoryEntry(id: string, status: TaskStatus): Promise<void> {
     const existing = this.store.get(id);
     if (!existing) throw new Error(`task not found: ${id}`);
-    existing.history = [...(existing.history ?? []), status];
+
+    // Update current status
+    existing.status = status;
+
+    // Record status history
+    existing.statusHistory = [...(existing.statusHistory ?? []), status];
+
+    // Record message to history if present
+    if (status.message) {
+      existing.history = [...(existing.history ?? []), status.message];
+    }
   }
 
   async delete(id: string): Promise<void> {
-    this.store.delete(id);
+    const deleted = this.store.delete(id);
+    if (!deleted) throw new Error(`task not found: ${id}`);
   }
 }
