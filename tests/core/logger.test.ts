@@ -63,4 +63,19 @@ describe("ConsoleLogger", () => {
     expect(parsed.auth.token).toBe("***");
     spy.mockRestore();
   });
+
+  it("handles circular references safely", () => {
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: "info" });
+    const circular: any = { a: 1 };
+    circular.self = circular;
+    
+    log.info("circular", { data: circular });
+    
+    const [line] = spy.mock.calls[0] as [string];
+    const parsed = JSON.parse(line);
+    expect(parsed.data.a).toBe(1);
+    expect(parsed.data.self).toBe("[Circular]");
+    spy.mockRestore();
+  });
 });

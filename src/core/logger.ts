@@ -45,8 +45,12 @@ export class ConsoleLogger implements Logger {
   }
 
   private mask(ctx: Record<string, unknown>): Record<string, unknown> {
+    const seen = new WeakSet<object>();
     const recurse = (val: unknown): unknown => {
       if (typeof val !== "object" || val === null) return val;
+      if (seen.has(val as object)) return "[Circular]";
+      seen.add(val as object);
+
       if (Array.isArray(val)) return val.map(recurse);
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
