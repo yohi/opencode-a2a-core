@@ -1,5 +1,8 @@
-export * from "./core/a2a-types.js";
-export * from "./core/errors.js";
-export * from "./core/logger.js";
-export * from "./core/plugin-interface.js";
-export * from "./core/define-plugin.js";
+// Re-export core
+export * from './core/index.js';
+
+// Re-export server
+export * from './server/index.js';
+
+// Re-export plugins
+export { GeminiCliPlugin } from './plugins/gemini-cli-plugin.js';

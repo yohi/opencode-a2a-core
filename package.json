@@ -13,7 +13,12 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."
   },
-  "keywords": ["a2a", "agent", "typescript", "node22"],
+  "keywords": [
+    "a2a",
+    "agent",
+    "typescript",
+    "node22"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -23,5 +28,8 @@
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.0"
   }
 }

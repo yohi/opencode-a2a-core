@@ -25,6 +25,20 @@ export class SubprocessError extends A2AError {
   }
 }
 
+export class TaskNotFoundError extends NonRetriableError {
+  constructor(taskId: string) {
+    super(`Task not found: ${taskId}`);
+    this.name = 'TaskNotFoundError';
+  }
+}
+
+export class PluginNotFoundError extends NonRetriableError {
+  constructor(pluginId: string) {
+    super(`Plugin not found: ${pluginId}`);
+    this.name = 'PluginNotFoundError';
+  }
+}
+
 export function serializeError(err: unknown): { code: string; message: string } {
   if (err instanceof A2AError) return { code: err.code, message: err.message };
   if (err instanceof Error) return { code: "Unknown", message: err.message };

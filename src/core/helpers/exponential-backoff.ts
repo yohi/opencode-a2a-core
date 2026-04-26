@@ -14,3 +14,6 @@ export function computeBackoffMs(
   const jitter = (2 * rng() - 1) * opts.jitterRatio;
   return Math.round(base * (1 + jitter));
 }
+
+// Alias for backward compatibility
+export const calculateBackoff = computeBackoffMs;
