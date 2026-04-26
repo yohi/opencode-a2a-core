@@ -22,6 +22,28 @@ describe("computeBackoffMs", () => {
   });
 
   it("throws on attempt < 1", () => {
-    expect(() => computeBackoffMs(0, opts)).toThrow();
+    expect(() => computeBackoffMs(0, opts)).toThrow("attempt must be >= 1");
+  });
+
+  it("caps the result at maxMs", () => {
+    const optsWithMax = { initialMs: 500, multiplier: 2, jitterRatio: 0, maxMs: 1500 };
+    expect(computeBackoffMs(1, optsWithMax)).toBe(500);
+    expect(computeBackoffMs(2, optsWithMax)).toBe(1000);
+    expect(computeBackoffMs(3, optsWithMax)).toBe(1500); // capped
+  });
+
+  it("validates input options", () => {
+    expect(() => computeBackoffMs(1, { ...opts, initialMs: 0 })).toThrow("initialMs must be > 0");
+    expect(() => computeBackoffMs(1, { ...opts, multiplier: -1 })).toThrow("multiplier must be >= 0");
+    expect(() => computeBackoffMs(1, { ...opts, jitterRatio: 1.1 })).toThrow("jitterRatio must be between 0 and 1");
+    expect(() => computeBackoffMs(1, { ...opts, jitterRatio: -0.1 })).toThrow("jitterRatio must be between 0 and 1");
+  });
+
+  it("handles jitterRatio = 1 without returning negative values", () => {
+    const optsMaxJitter = { initialMs: 1000, multiplier: 2, jitterRatio: 1 };
+    const rngLow = () => 0; // factor = 1 + (2*0 - 1) * 1 = 0
+    expect(computeBackoffMs(1, optsMaxJitter, rngLow)).toBe(0);
+    const rngHigh = () => 1; // factor = 1 + (2*1 - 1) * 1 = 2
+    expect(computeBackoffMs(1, optsMaxJitter, rngHigh)).toBe(2000);
   });
 });
