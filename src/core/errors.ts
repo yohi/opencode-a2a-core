@@ -16,14 +16,14 @@ export class NonRetriableError extends A2AError {
 }
 
 export class SubprocessError extends A2AError {
-  private readonly _stderr: string;
+  readonly #stderr: string;
 
   constructor(
     public readonly exitCode: number,
     stderr: string,
   ) {
     super("SubprocessFailed", `subprocess failed with exit code ${exitCode}`);
-    this._stderr = stderr;
+    this.#stderr = stderr;
     this.name = "SubprocessError";
   }
 
@@ -32,7 +32,7 @@ export class SubprocessError extends A2AError {
    * This is marked as private to prevent accidental leakage during serialization.
    */
   get rawStderr(): string {
-    return this._stderr;
+    return this.#stderr;
   }
 }
 
