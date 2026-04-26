@@ -78,4 +78,31 @@ describe("ConsoleLogger", () => {
     expect(parsed.data.self).toBe("[Circular]");
     spy.mockRestore();
   });
+
+  it("handles Error objects in context", () => {
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: "info" });
+    const err = new Error("failed");
+    
+    log.error("oops", { err });
+    
+    const [line] = spy.mock.calls[0] as [string];
+    const parsed = JSON.parse(line);
+    expect(parsed.err.message).toBe("failed");
+    expect(parsed.err.name).toBe("Error");
+    expect(typeof parsed.err.stack).toBe("string");
+    spy.mockRestore();
+  });
+
+  it("handles BigInt in context", () => {
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: "info" });
+    
+    log.info("bigint", { val: BigInt(42) });
+    
+    const [line] = spy.mock.calls[0] as [string];
+    const parsed = JSON.parse(line);
+    expect(parsed.val).toBe("42");
+    spy.mockRestore();
+  });
 });

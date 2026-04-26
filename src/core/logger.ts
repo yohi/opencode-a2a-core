@@ -35,18 +35,32 @@ export class ConsoleLogger implements Logger {
 
   private emit(level: LogLevel, msg: string, ctx?: Record<string, unknown>): void {
     if (LEVELS[level] < this.threshold) return;
-    const entry = {
-      ...this.mask(ctx ?? {}),
-      timestamp: new Date().toISOString(),
-      level,
-      msg,
-    };
-    process.stdout.write(`${JSON.stringify(entry)}\n`);
+    try {
+      const entry = {
+        ...this.mask(ctx ?? {}),
+        timestamp: new Date().toISOString(),
+        level,
+        msg,
+      };
+      const json = JSON.stringify(entry, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+      process.stdout.write(`${json}\n`);
+    } catch (err) {
+      const fallback = JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: "error",
+        msg: "Failed to serialize log entry",
+        error: err instanceof Error ? err.message : String(err),
+      });
+      process.stdout.write(`${fallback}\n`);
+    }
   }
 
   private mask(ctx: Record<string, unknown>): Record<string, unknown> {
     const seen = new WeakSet<object>();
     const recurse = (val: unknown): unknown => {
+      if (val instanceof Error) {
+        return { message: val.message, name: val.name, stack: val.stack };
+      }
       if (typeof val !== "object" || val === null) return val;
       if (seen.has(val as object)) return "[Circular]";
       seen.add(val as object);
