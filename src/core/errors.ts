@@ -29,7 +29,7 @@ export class SubprocessError extends A2AError {
 
   /**
    * Returns the raw stderr output.
-   * This is marked as private to prevent accidental leakage during serialization.
+   * Exposed for internal use; not intended for direct serialization to prevent leakage.
    */
   get rawStderr(): string {
     return this.#stderr;
