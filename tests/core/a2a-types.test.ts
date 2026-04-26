@@ -30,9 +30,12 @@ describe("PartSchema discriminated union", () => {
     ).toMatchObject({ kind: "file", file: { name: "a.txt" } });
   });
 
-  it.skip("accepts DataPart with arbitrary data", () => {
-    // Skipped: Zod v4 compatibility issue with z.record() in discriminatedUnion
-    expect(true).toBe(true);
+  it("accepts DataPart with arbitrary data", () => {
+    const data = { foo: "bar", num: 123 };
+    expect(PartSchema.parse({ kind: "data", data })).toEqual({
+      kind: "data",
+      data,
+    });
   });
 
   it("rejects unknown kind", () => {
@@ -52,20 +55,22 @@ describe("MessageSchema", () => {
 });
 
 describe("TaskStateSchema", () => {
-  it("accepts the five defined states", () => {
+  it("accepts the defined states", () => {
     for (const s of [
-      "TASK_STATE_PENDING",
+      "TASK_STATE_SUBMITTED",
       "TASK_STATE_WORKING",
+      "TASK_STATE_INPUT_REQUIRED",
       "TASK_STATE_COMPLETED",
       "TASK_STATE_FAILED",
       "TASK_STATE_CANCELED",
+      "TASK_STATE_UNKNOWN",
     ]) {
       expect(TaskStateSchema.parse(s)).toBe(s);
     }
   });
 
   it("rejects unknown states", () => {
-    expect(() => TaskStateSchema.parse("TASK_STATE_UNKNOWN")).toThrow();
+    expect(() => TaskStateSchema.parse("TASK_STATE_NOT_REAL")).toThrow();
   });
 });
 
@@ -74,10 +79,22 @@ describe("TaskStatusSchema / ArtifactSchema / TaskSchema", () => {
     expect(
       TaskStatusSchema.parse({
         state: "TASK_STATE_FAILED",
-        message: "boom",
-        timestamp: "2026-04-24T10:00:00Z",
+        message: {
+          role: "ROLE_AGENT",
+          parts: [{ kind: "text", text: "boom" }],
+        },
+        timestamp: "2026-04-24T10:00:00.000Z",
       }),
     ).toMatchObject({ state: "TASK_STATE_FAILED" });
+  });
+
+  it("rejects invalid timestamp", () => {
+    expect(() =>
+      TaskStatusSchema.parse({
+        state: "TASK_STATE_WORKING",
+        timestamp: "not-a-date",
+      }),
+    ).toThrow();
   });
 
   it("Artifact requires artifactId and parts", () => {
@@ -91,7 +108,7 @@ describe("TaskStatusSchema / ArtifactSchema / TaskSchema", () => {
   it("Task requires id and status", () => {
     const t = TaskSchema.parse({
       id: "t-1",
-      status: { state: "TASK_STATE_PENDING" },
+      status: { state: "TASK_STATE_SUBMITTED" },
     });
     expect(t.id).toBe("t-1");
   });
@@ -101,7 +118,7 @@ describe("StreamResponseSchema discriminated union", () => {
   it("accepts kind=task", () => {
     const r = StreamResponseSchema.parse({
       kind: "task",
-      task: { id: "t-1", status: { state: "TASK_STATE_PENDING" } },
+      task: { id: "t-1", status: { state: "TASK_STATE_SUBMITTED" } },
     });
     expect(r.kind).toBe("task");
   });
