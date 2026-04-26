@@ -125,9 +125,9 @@ describe("PluginRegistry", () => {
     reg.register(minimalPlugin);
 
     // Should not throw even if configSchema and initialize are missing
-    await expect(reg.initializeAll({})).resolves.not.toThrow();
+    await expect(reg.initializeAll({})).resolves.toBeUndefined();
     // Should not throw even if dispose is missing
-    await expect(reg.disposeAll()).resolves.not.toThrow();
+    await expect(reg.disposeAll()).resolves.toBeUndefined();
   });
 
   it("disposeAll continues on error and throws AggregateError", async () => {
