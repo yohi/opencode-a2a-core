@@ -37,12 +37,22 @@ describe("ConsoleLogger", () => {
   it("masks secret-like keys in context", () => {
     const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const log = new ConsoleLogger({ level: "info" });
-    log.info("event", { apiKey: "s3cr3t", token: "abc", safe: "ok" });
+    log.info("event", { 
+      apiKey: "s3cr3t", 
+      token: "abc", 
+      safe: "ok",
+      level: "fake", // 予約キーとの衝突
+      auth: { token: "secret" } // ネストされた機密情報
+    });
     const [line] = spy.mock.calls[0] as [string];
     const parsed = JSON.parse(line);
     expect(parsed.apiKey).toBe("***");
     expect(parsed.token).toBe("***");
     expect(parsed.safe).toBe("ok");
+    // コアフィールドが優先され、ctx による上書きが防止されていること
+    expect(parsed.level).toBe("info");
+    // ネストされたオブジェクト内もマスクされていること
+    expect(parsed.auth.token).toBe("***");
     spy.mockRestore();
   });
 });
