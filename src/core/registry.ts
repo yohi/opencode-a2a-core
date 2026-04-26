@@ -19,10 +19,29 @@ export class PluginRegistry {
   }
 
   async initializeAll(configs: Record<string, unknown>): Promise<void> {
-    for (const plugin of this.plugins.values()) {
-      const raw = configs[plugin.id] ?? {};
-      const parsed = plugin.configSchema ? plugin.configSchema.parse(raw) : raw;
-      await plugin.initialize?.(parsed);
+    const initialized: A2APluginInterface[] = [];
+    try {
+      for (const plugin of this.plugins.values()) {
+        const raw = Object.prototype.hasOwnProperty.call(configs, plugin.id)
+          ? configs[plugin.id]
+          : {};
+        const parsed = plugin.configSchema ? plugin.configSchema.parse(raw) : raw;
+        await plugin.initialize?.(parsed);
+        initialized.push(plugin);
+      }
+    } catch (err) {
+      for (let i = initialized.length - 1; i >= 0; i--) {
+        try {
+          await initialized[i].dispose?.();
+        } catch (disposeErr) {
+          // Log dispose errors during rollback to preserve the original error
+          console.error(
+            `Failed to dispose plugin ${initialized[i].id} during rollback:`,
+            disposeErr
+          );
+        }
+      }
+      throw err;
     }
   }
 

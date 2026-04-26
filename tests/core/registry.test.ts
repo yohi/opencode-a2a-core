@@ -55,6 +55,46 @@ describe("PluginRegistry", () => {
     await expect(reg.initializeAll({ z: { foo: 42 } })).rejects.toThrow();
   });
 
+  it("initializeAll treats explicit null as null and fails Zod validation if not allowed", async () => {
+    const reg = new PluginRegistry();
+    reg.register(makePlugin("nulltest"));
+    // Passing null should not be converted to {} and thus fail Zod validation
+    await expect(reg.initializeAll({ nulltest: null as any })).rejects.toThrow();
+  });
+
+  it("initializeAll rolls back (disposes) already initialized plugins on failure", async () => {
+    const reg = new PluginRegistry();
+    const state: string[] = [];
+
+    const p1: A2APluginInterface = {
+      ...makePlugin("p1"),
+      async initialize() {
+        state.push("init-p1");
+      },
+      async dispose() {
+        state.push("dispose-p1");
+      },
+    };
+    const p2: A2APluginInterface = {
+      ...makePlugin("p2"),
+      async initialize() {
+        state.push("init-p2");
+        throw new Error("p2-init-fail");
+      },
+      async dispose() {
+        state.push("dispose-p2");
+      },
+    };
+
+    reg.register(p1);
+    reg.register(p2);
+
+    await expect(reg.initializeAll({})).rejects.toThrow("p2-init-fail");
+
+    // Order: p1 init, p2 init (fails), p1 dispose (rollback)
+    expect(state).toEqual(["init-p1", "init-p2", "dispose-p1"]);
+  });
+
   it("disposeAll calls every plugin's dispose", async () => {
     const reg = new PluginRegistry();
     const disposed: string[] = [];
