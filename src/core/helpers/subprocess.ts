@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import { SubprocessError } from "../errors.js";
 
 export interface JsonLinesSubprocessOpts {
   cmd: string;
@@ -9,16 +10,6 @@ export interface JsonLinesSubprocessOpts {
   abortSignal: AbortSignal;
   stdin?: string | Uint8Array;
   timeoutMs?: number;
-}
-
-export class SubprocessError extends Error {
-  constructor(
-    readonly exitCode: number | null,
-    readonly stderr: string,
-  ) {
-    super(`Subprocess exited with code ${exitCode}: ${stderr}`);
-    this.name = "SubprocessError";
-  }
 }
 
 export async function* runJsonLinesSubprocess(
@@ -32,25 +23,50 @@ export async function* runJsonLinesSubprocess(
 
   let stderr = "";
   let completed = false;
+  let spawnError: Error | undefined;
 
   child.stderr?.on("data", (data: Buffer) => {
     stderr += data.toString();
+  });
+
+  child.on("error", (err) => {
+    completed = true;
+    spawnError = err;
   });
 
   const abortHandler = () => {
     if (!completed) {
       child.kill("SIGTERM");
       setTimeout(() => {
-        if (!child.killed) {
+        if (!completed) {
           child.kill("SIGKILL");
         }
       }, 5000);
     }
   };
+  
   opts.abortSignal.addEventListener("abort", abortHandler);
+  
+  let timeoutTimer: NodeJS.Timeout | undefined;
+  if (opts.timeoutMs !== undefined) {
+    timeoutTimer = setTimeout(() => {
+      if (!completed) {
+        abortHandler();
+      }
+    }, opts.timeoutMs);
+  }
 
-  if (opts.stdin) {
+  const cleanup = () => {
+    opts.abortSignal.removeEventListener("abort", abortHandler);
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer);
+    }
+  };
+
+  if (opts.stdin !== undefined) {
     child.stdin?.write(opts.stdin);
+    child.stdin?.end();
+  } else {
     child.stdin?.end();
   }
 
@@ -66,17 +82,24 @@ export async function* runJsonLinesSubprocess(
       }
     }
   } finally {
-    opts.abortSignal.removeEventListener("abort", abortHandler);
+    cleanup();
   }
 
-  const exitCode = await new Promise<number | null>((resolve) => {
+  const exitCode = await new Promise<number | null>((resolve, reject) => {
+    if (spawnError) {
+      return reject(spawnError);
+    }
     child.on("close", (code) => {
       completed = true;
       resolve(code);
     });
+    child.on("error", (err) => {
+      completed = true;
+      reject(err);
+    });
   });
 
   if (exitCode !== 0) {
-    throw new SubprocessError(exitCode, stderr);
+    throw new SubprocessError(exitCode ?? -1, stderr);
   }
 }
