@@ -9,37 +9,37 @@ export class A2AError extends Error {
 }
 
 export class NonRetriableError extends A2AError {
-  constructor(message: string) {
-    super("NonRetriable", message);
+  constructor(message: string, code = "NonRetriable") {
+    super(code, message);
     this.name = "NonRetriableError";
   }
 }
 
 export class SubprocessError extends A2AError {
-  readonly #stderr: string;
-
   constructor(
     public readonly exitCode: number,
-    stderr: string,
+    public readonly stderr: string,
   ) {
     super("SubprocessFailed", `subprocess failed with exit code ${exitCode}`);
-    this.#stderr = stderr;
     this.name = "SubprocessError";
   }
+}
 
-  /**
-   * Returns the raw stderr output.
-   * Exposed for internal use; not intended for direct serialization to prevent leakage.
-   */
-  get rawStderr(): string {
-    return this.#stderr;
+export class TaskNotFoundError extends NonRetriableError {
+  constructor(taskId: string) {
+    super(`Task not found: ${taskId}`, "TaskNotFound");
+    this.name = "TaskNotFoundError";
+  }
+}
+
+export class PluginNotFoundError extends NonRetriableError {
+  constructor(pluginId: string) {
+    super(`Plugin not found: ${pluginId}`, "PluginNotFound");
+    this.name = "PluginNotFoundError";
   }
 }
 
 export function serializeError(err: unknown): { code: string; message: string } {
-  if (err instanceof SubprocessError) {
-    return { code: err.code, message: err.message };
-  }
   if (err instanceof A2AError) return { code: err.code, message: err.message };
   if (err instanceof Error) return { code: "Unknown", message: err.message };
   return { code: "Unknown", message: String(err) };
