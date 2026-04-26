@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { defineA2APlugin } from "../../src/core/define-plugin.js";
-import type { A2APluginInterface } from "../../src/core/plugin-interface.js";
+import type { A2APluginInterface, A2APluginContext } from "../../src/core/plugin-interface.js";
+import type { Message, StreamResponse } from "../../src/core/a2a-types.js";
+import { createLogger } from "../../src/core/logger.js";
 
 describe("defineA2APlugin", () => {
   it("returns the input object unchanged and preserves typing", () => {
@@ -27,7 +29,13 @@ describe("defineA2APlugin", () => {
       id: "minimal",
       version: "1.0.0",
       async *execute() {
-        yield { kind: "task", task: { id: "123", status: { state: "TASK_STATE_COMPLETED" } } } as any;
+        yield {
+          kind: "task",
+          task: {
+            id: "123",
+            status: { state: "TASK_STATE_COMPLETED" },
+          },
+        };
       },
       metadata: () => ({ skills: [] }),
     };
@@ -38,7 +46,13 @@ describe("defineA2APlugin", () => {
   });
 
   it("verifies execute behavior as AsyncIterable", async () => {
-    const mockResponse = { kind: "message", message: { role: "ROLE_AGENT", parts: [{ kind: "text", text: "hello" }] } } as any;
+    const mockResponse: StreamResponse = {
+      kind: "message",
+      message: {
+        role: "ROLE_AGENT",
+        parts: [{ kind: "text", text: "hello" }],
+      },
+    };
     const plugin: A2APluginInterface = {
       id: "stream-test",
       version: "1.0.0",
@@ -48,8 +62,19 @@ describe("defineA2APlugin", () => {
       metadata: () => ({ skills: [] }),
     };
 
-    const results = [];
-    for await (const res of plugin.execute({ role: "ROLE_USER", parts: [] } as any, {} as any)) {
+    const dummyContext: A2APluginContext = {
+      logger: createLogger(),
+      abortSignal: new AbortController().signal,
+      taskId: "test-task",
+    };
+
+    const dummyMessage: Message = {
+      role: "ROLE_USER",
+      parts: [{ kind: "text", text: "ping" }],
+    };
+
+    const results: StreamResponse[] = [];
+    for await (const res of plugin.execute(dummyMessage, dummyContext)) {
       results.push(res);
     }
     expect(results).toHaveLength(1);
