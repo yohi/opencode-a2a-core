@@ -22,16 +22,28 @@ describe("A2AError hierarchy", () => {
     expect(err.message).toBe("PluginNotFound");
   });
 
-  it("SubprocessError carries exitCode and stderr", () => {
-    const err = new SubprocessError(127, "command not found");
+  it("SubprocessError carries exitCode and masks stderr in message", () => {
+    const err = new SubprocessError(127, "secret_key=12345");
     expect(err).toBeInstanceOf(A2AError);
     expect(err.code).toBe("SubprocessFailed");
     expect(err.exitCode).toBe(127);
-    expect(err.stderr).toBe("command not found");
+    // message should NOT contain stderr
+    expect(err.message).toBe("subprocess failed with exit code 127");
+    expect(err.message).not.toContain("secret_key");
   });
 });
 
 describe("serializeError", () => {
+  it("serializes SubprocessError with sanitized message", () => {
+    const err = new SubprocessError(1, "private data");
+    const out = serializeError(err);
+    expect(out).toEqual({
+      code: "SubprocessFailed",
+      message: "subprocess failed with exit code 1",
+    });
+    expect(out.message).not.toContain("private data");
+  });
+
   it("serializes A2AError to { code, message }", () => {
     const out = serializeError(new A2AError("X", "y"));
     expect(out).toEqual({ code: "X", message: "y" });
