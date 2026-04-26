@@ -27,8 +27,16 @@ export class PluginRegistry {
   }
 
   async disposeAll(): Promise<void> {
+    const errors: unknown[] = [];
     for (const plugin of this.plugins.values()) {
-      await plugin.dispose?.();
+      try {
+        await plugin.dispose?.();
+      } catch (err) {
+        errors.push(err);
+      }
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, "One or more plugins failed to dispose");
     }
   }
 }
