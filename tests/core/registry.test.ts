@@ -13,7 +13,7 @@ function makePlugin(id: string, opts: { initSpy?: (c: unknown) => void } = {}): 
     },
     async dispose() {},
     async *execute() {},
-    metadata: () => ({ skill: { id, name: id, description: "" } }),
+    metadata: () => ({ skills: [{ id, name: id, description: "" }] }),
   };
 }
 
@@ -70,5 +70,21 @@ describe("PluginRegistry", () => {
     reg.register(p2);
     await reg.disposeAll();
     expect(disposed).toEqual(["p1", "p2"]);
+  });
+
+  it("initializeAll and disposeAll handle plugins without optional fields", async () => {
+    const reg = new PluginRegistry();
+    const minimalPlugin: A2APluginInterface = {
+      id: "minimal",
+      version: "0.0.1",
+      async *execute() {},
+      metadata: () => ({ skills: [] }),
+    };
+    reg.register(minimalPlugin);
+
+    // Should not throw even if configSchema and initialize are missing
+    await expect(reg.initializeAll({})).resolves.not.toThrow();
+    // Should not throw even if dispose is missing
+    await expect(reg.disposeAll()).resolves.not.toThrow();
   });
 });

@@ -21,14 +21,14 @@ export class PluginRegistry {
   async initializeAll(configs: Record<string, unknown>): Promise<void> {
     for (const plugin of this.plugins.values()) {
       const raw = configs[plugin.id] ?? {};
-      const parsed = plugin.configSchema.parse(raw);
-      await plugin.initialize(parsed);
+      const parsed = plugin.configSchema ? plugin.configSchema.parse(raw) : raw;
+      await plugin.initialize?.(parsed);
     }
   }
 
   async disposeAll(): Promise<void> {
     for (const plugin of this.plugins.values()) {
-      await plugin.dispose();
+      await plugin.dispose?.();
     }
   }
 }
