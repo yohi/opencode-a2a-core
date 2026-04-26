@@ -29,9 +29,17 @@ export async function* runJsonLinesSubprocess(
     stderr += data.toString();
   });
 
-  child.on("error", (err) => {
-    completed = true;
-    spawnError = err;
+  // Prepare the close promise before consuming any streams to avoid race conditions.
+  const closePromise = new Promise<number | null>((resolve, reject) => {
+    child.on("close", (code) => {
+      completed = true;
+      resolve(code);
+    });
+    child.on("error", (err) => {
+      completed = true;
+      spawnError = err;
+      reject(err);
+    });
   });
 
   const abortHandler = () => {
@@ -85,19 +93,8 @@ export async function* runJsonLinesSubprocess(
     cleanup();
   }
 
-  const exitCode = await new Promise<number | null>((resolve, reject) => {
-    if (spawnError) {
-      return reject(spawnError);
-    }
-    child.on("close", (code) => {
-      completed = true;
-      resolve(code);
-    });
-    child.on("error", (err) => {
-      completed = true;
-      reject(err);
-    });
-  });
+  // Use the promise created earlier. If a spawn error occurred, it will be reflected here.
+  const exitCode = await (spawnError ? Promise.reject(spawnError) : closePromise);
 
   if (exitCode !== 0) {
     throw new SubprocessError(exitCode ?? -1, stderr);
