@@ -19,16 +19,44 @@ export class PluginRegistry {
   }
 
   async initializeAll(configs: Record<string, unknown>): Promise<void> {
-    for (const plugin of this.plugins.values()) {
-      const raw = configs[plugin.id] ?? {};
-      const parsed = plugin.configSchema.parse(raw);
-      await plugin.initialize(parsed);
+    const initialized: A2APluginInterface[] = [];
+    try {
+      for (const plugin of this.plugins.values()) {
+        const raw = Object.prototype.hasOwnProperty.call(configs, plugin.id)
+          ? configs[plugin.id]
+          : {};
+        const parsed = plugin.configSchema ? plugin.configSchema.parse(raw) : raw;
+        await plugin.initialize?.(parsed);
+        initialized.push(plugin);
+      }
+    } catch (err) {
+      for (let i = initialized.length - 1; i >= 0; i--) {
+        try {
+          await initialized[i].dispose?.();
+        } catch (disposeErr) {
+          // Log dispose errors during rollback to preserve the original error
+          // eslint-disable-next-line no-console
+          console.error(
+            `Failed to dispose plugin ${initialized[i].id} during rollback:`,
+            disposeErr
+          );
+        }
+      }
+      throw err;
     }
   }
 
   async disposeAll(): Promise<void> {
+    const errors: unknown[] = [];
     for (const plugin of this.plugins.values()) {
-      await plugin.dispose();
+      try {
+        await plugin.dispose?.();
+      } catch (err) {
+        errors.push(err);
+      }
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, "One or more plugins failed to dispose");
     }
   }
 }

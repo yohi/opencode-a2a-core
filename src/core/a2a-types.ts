@@ -14,7 +14,7 @@ export const FilePartSchema = z.object({
     .object({
       name: z.string().optional(),
       mimeType: z.string().optional(),
-      bytes: z.string().optional(), // base64
+      bytes: z.string().base64().optional(), // base64 validation
       uri: z.string().url().optional(),
     })
     .refine((f) => f.bytes != null || f.uri != null, {
@@ -24,7 +24,7 @@ export const FilePartSchema = z.object({
 
 export const DataPartSchema = z.object({
   kind: z.literal("data"),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
 });
 
 export const PartSchema = z.discriminatedUnion("kind", [
@@ -35,29 +35,34 @@ export const PartSchema = z.discriminatedUnion("kind", [
 export type Part = z.infer<typeof PartSchema>;
 
 // ---- Message ----
-export const MessageSchema = z.object({
-  role: z.enum(["ROLE_USER", "ROLE_AGENT"]),
-  parts: z.array(PartSchema).min(1),
-  messageId: z.string().optional(),
-  taskId: z.string().optional(),
-  contextId: z.string().optional(),
-});
+export const MessageSchema = z.lazy(() =>
+  z.object({
+    role: z.enum(["ROLE_USER", "ROLE_AGENT"]),
+    parts: z.array(PartSchema).min(1),
+    messageId: z.string().optional(),
+    taskId: z.string().optional(),
+    contextId: z.string().optional(),
+  }),
+);
 export type Message = z.infer<typeof MessageSchema>;
 
 // ---- Task state/status ----
 export const TaskStateSchema = z.enum([
   "TASK_STATE_PENDING",
+  "TASK_STATE_SUBMITTED",
   "TASK_STATE_WORKING",
+  "TASK_STATE_INPUT_REQUIRED",
   "TASK_STATE_COMPLETED",
   "TASK_STATE_FAILED",
   "TASK_STATE_CANCELED",
+  "TASK_STATE_UNKNOWN",
 ]);
 export type TaskState = z.infer<typeof TaskStateSchema>;
 
 export const TaskStatusSchema = z.object({
   state: TaskStateSchema,
-  timestamp: z.string().optional(),
-  message: z.string().optional(),
+  timestamp: z.string().datetime().optional(),
+  message: MessageSchema.optional(),
 });
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 
@@ -76,7 +81,8 @@ export const TaskSchema = z.object({
   contextId: z.string().optional(),
   status: TaskStatusSchema,
   artifacts: z.array(ArtifactSchema).optional(),
-  history: z.array(TaskStatusSchema).optional(),
+  history: z.array(MessageSchema).optional(),
+  statusHistory: z.array(TaskStatusSchema).optional(),
 });
 export type Task = z.infer<typeof TaskSchema>;
 

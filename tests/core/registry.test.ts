@@ -13,7 +13,7 @@ function makePlugin(id: string, opts: { initSpy?: (c: unknown) => void } = {}): 
     },
     async dispose() {},
     async *execute() {},
-    metadata: () => ({ skill: { id, name: id, description: "" } }),
+    metadata: () => ({ skills: [{ id, name: id, description: "" }] }),
   };
 }
 
@@ -55,6 +55,48 @@ describe("PluginRegistry", () => {
     await expect(reg.initializeAll({ z: { foo: 42 } })).rejects.toThrow();
   });
 
+  it("initializeAll treats explicit null as null and fails Zod validation if not allowed", async () => {
+    const reg = new PluginRegistry();
+    reg.register(makePlugin("nulltest"));
+    // Passing null should not be converted to {} and thus fail Zod validation
+    await expect(
+      reg.initializeAll({ nulltest: null as unknown as Record<string, unknown> })
+    ).rejects.toThrow();
+  });
+
+  it("initializeAll rolls back (disposes) already initialized plugins on failure", async () => {
+    const reg = new PluginRegistry();
+    const state: string[] = [];
+
+    const p1: A2APluginInterface = {
+      ...makePlugin("p1"),
+      async initialize() {
+        state.push("init-p1");
+      },
+      async dispose() {
+        state.push("dispose-p1");
+      },
+    };
+    const p2: A2APluginInterface = {
+      ...makePlugin("p2"),
+      async initialize() {
+        state.push("init-p2");
+        throw new Error("p2-init-fail");
+      },
+      async dispose() {
+        state.push("dispose-p2");
+      },
+    };
+
+    reg.register(p1);
+    reg.register(p2);
+
+    await expect(reg.initializeAll({})).rejects.toThrow("p2-init-fail");
+
+    // Order: p1 init, p2 init (fails), p1 dispose (rollback)
+    expect(state).toEqual(["init-p1", "init-p2", "dispose-p1"]);
+  });
+
   it("disposeAll calls every plugin's dispose", async () => {
     const reg = new PluginRegistry();
     const disposed: string[] = [];
@@ -70,5 +112,59 @@ describe("PluginRegistry", () => {
     reg.register(p2);
     await reg.disposeAll();
     expect(disposed).toEqual(["p1", "p2"]);
+  });
+
+  it("initializeAll and disposeAll handle plugins without optional fields", async () => {
+    const reg = new PluginRegistry();
+    const minimalPlugin: A2APluginInterface = {
+      id: "minimal",
+      version: "0.0.1",
+      async *execute() {},
+      metadata: () => ({ skills: [] }),
+    };
+    reg.register(minimalPlugin);
+
+    // Should not throw even if configSchema and initialize are missing
+    await expect(reg.initializeAll({})).resolves.toBeUndefined();
+    // Should not throw even if dispose is missing
+    await expect(reg.disposeAll()).resolves.toBeUndefined();
+  });
+
+  it("disposeAll continues on error and throws AggregateError", async () => {
+    const reg = new PluginRegistry();
+    const disposed: string[] = [];
+
+    const p1: A2APluginInterface = {
+      ...makePlugin("p1"),
+      dispose: async () => {
+        throw new Error("p1 fail");
+      },
+    };
+    const p2: A2APluginInterface = {
+      ...makePlugin("p2"),
+      dispose: async () => {
+        disposed.push("p2");
+      },
+    };
+
+    reg.register(p1);
+    reg.register(p2);
+
+    const promise = reg.disposeAll();
+
+    // Verify error collection and type
+    try {
+      await promise;
+      expect.fail("Should have thrown AggregateError");
+    } catch (err) {
+      expect(err).toBeInstanceOf(AggregateError);
+      const aggErr = err as AggregateError;
+      expect(aggErr.message).toMatch(/One or more plugins failed to dispose/);
+      expect(aggErr.errors).toHaveLength(1);
+      expect(aggErr.errors[0].message).toBe("p1 fail");
+    }
+
+    // Verify p2 was still disposed even though p1 failed
+    expect(disposed).toEqual(["p2"]);
   });
 });

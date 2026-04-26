@@ -3,6 +3,8 @@ import {
   A2AError,
   NonRetriableError,
   SubprocessError,
+  TaskNotFoundError,
+  PluginNotFoundError,
   serializeError,
 } from "../../src/core/errors.js";
 
@@ -20,6 +22,18 @@ describe("A2AError hierarchy", () => {
     expect(err).toBeInstanceOf(A2AError);
     expect(err.code).toBe("NonRetriable");
     expect(err.message).toBe("PluginNotFound");
+  });
+
+  it("TaskNotFoundError has code TaskNotFound", () => {
+    const err = new TaskNotFoundError("task-123");
+    expect(err.code).toBe("TaskNotFound");
+    expect(err.message).toBe("Task not found: task-123");
+  });
+
+  it("PluginNotFoundError has code PluginNotFound", () => {
+    const err = new PluginNotFoundError("plugin-abc");
+    expect(err.code).toBe("PluginNotFound");
+    expect(err.message).toBe("Plugin not found: plugin-abc");
   });
 
   it("SubprocessError carries exitCode and masks stderr in message", () => {
