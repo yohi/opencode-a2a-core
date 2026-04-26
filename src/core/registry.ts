@@ -35,6 +35,7 @@ export class PluginRegistry {
           await initialized[i].dispose?.();
         } catch (disposeErr) {
           // Log dispose errors during rollback to preserve the original error
+          // eslint-disable-next-line no-console
           console.error(
             `Failed to dispose plugin ${initialized[i].id} during rollback:`,
             disposeErr

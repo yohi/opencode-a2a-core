@@ -59,7 +59,9 @@ describe("PluginRegistry", () => {
     const reg = new PluginRegistry();
     reg.register(makePlugin("nulltest"));
     // Passing null should not be converted to {} and thus fail Zod validation
-    await expect(reg.initializeAll({ nulltest: null as any })).rejects.toThrow();
+    await expect(
+      reg.initializeAll({ nulltest: null as unknown as Record<string, unknown> })
+    ).rejects.toThrow();
   });
 
   it("initializeAll rolls back (disposes) already initialized plugins on failure", async () => {
