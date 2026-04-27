@@ -113,16 +113,13 @@ describe("InMemoryTaskStore", () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     
-    // Use Extract for precise type safety instead of unknown casts
-    const chunk: Extract<StreamResponse, { kind: "message" }> = { 
-      kind: "message", 
-      message: { 
-        role: "ROLE_USER", 
-        parts: [{ kind: "text", text: "hi" }] 
-      } 
+    // Using a non-existent kind to trigger error
+    const chunk: any = { 
+      kind: "unknown-kind", 
+      data: {}
     };
     
-    await expect(store.appendStreamChunk(t.id, chunk)).rejects.toThrow(/Unhandled stream chunk kind "message"/);
+    await expect(store.appendStreamChunk(t.id, chunk)).rejects.toThrow(/Unhandled stream chunk kind "unknown-kind"/);
   });
 
   it("get returns a defensive copy", async () => {

@@ -58,13 +58,23 @@ export class InMemoryTaskStore implements TaskStore {
     existing.artifacts = [...(existing.artifacts ?? []), structuredClone(artifact)];
   }
 
+  async appendMessage(id: string, message: Message): Promise<void> {
+    const existing = this.store.get(id);
+    if (!existing) throw new Error(`task not found: ${id}`);
+    existing.history = [...(existing.history ?? []), structuredClone(message)];
+  }
+
   async appendStreamChunk(id: string, chunk: StreamResponse): Promise<void> {
     if (chunk.kind === "artifact-update") {
       await this.appendArtifact(id, chunk.artifact);
     } else if (chunk.kind === "status-update") {
       await this.appendHistoryEntry(id, chunk.status);
+    } else if (chunk.kind === "message") {
+      await this.appendMessage(id, chunk.message);
+    } else if (chunk.kind === "task") {
+      // Typically emitted by the runner, but skip if seen in stream to avoid unhandled kind error
     } else {
-      throw new Error(`Unhandled stream chunk kind "${chunk.kind}" for task ${id}`);
+      throw new Error(`Unhandled stream chunk kind "${(chunk as any).kind}" for task ${id}`);
     }
   }
 

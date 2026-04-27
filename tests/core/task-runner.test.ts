@@ -107,4 +107,37 @@ describe("TaskRunner — happy path", () => {
     const persisted = await store.get(taskId);
     expect(persisted?.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
   });
+
+  it("handles 'message' chunks and persists them to history", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("p", async function* () {
+        yield {
+          kind: "message",
+          message: {
+            role: "ROLE_AGENT",
+            parts: [{ kind: "text", text: "thought: processing..." }],
+          },
+        };
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 1,
+      initialBackoffMs: 10,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("p", mkMessage(), { abortSignal: ctl.signal }));
+
+    expect(out.some((c) => c.kind === "message")).toBe(true);
+
+    const taskId = (out[0] as any).task.id;
+    const persisted = await store.get(taskId);
+    expect(persisted?.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(persisted?.history).toHaveLength(1);
+    expect(persisted?.history?.[0].parts[0]).toEqual({ kind: "text", text: "thought: processing..." });
+  });
 });
