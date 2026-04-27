@@ -56,20 +56,22 @@ export class TaskRunner {
               state: "TASK_STATE_WORKING",
               timestamp: new Date().toISOString(),
             };
-            await this.taskStore.update(task.id, { status: workingStatus });
-            await this.taskStore.appendHistoryEntry(task.id, workingStatus);
+            await this.taskStore.updateStatus(task.id, workingStatus);
             yield { kind: "status-update", status: workingStatus };
           }
           yield chunk;
           await this.taskStore.appendStreamChunk(task.id, chunk);
         }
-        const completedStatus: TaskStatus = {
-          state: "TASK_STATE_COMPLETED",
-          timestamp: new Date().toISOString(),
-        };
-        await this.taskStore.update(task.id, { status: completedStatus });
-        await this.taskStore.appendHistoryEntry(task.id, completedStatus);
-        yield { kind: "status-update", status: completedStatus };
+        
+        const currentTask = await this.taskStore.get(task.id);
+        if (currentTask?.status.state === "TASK_STATE_WORKING") {
+          const completedStatus: TaskStatus = {
+            state: "TASK_STATE_COMPLETED",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, completedStatus);
+          yield { kind: "status-update", status: completedStatus };
+        }
         return;
       } catch (err) {
         lastError = err;
@@ -97,9 +99,9 @@ export class TaskRunner {
       timestamp: new Date().toISOString(),
       message: serializeError(lastError).message,
     };
-    await this.taskStore.update(task.id, { status: failed });
-    await this.taskStore.appendHistoryEntry(task.id, failed);
+    await this.taskStore.updateStatus(task.id, failed);
     yield { kind: "status-update", status: failed };
+    throw lastError;
   }
 
   private sleep(ms: number): Promise<void> {

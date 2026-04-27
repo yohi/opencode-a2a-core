@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Task, TaskStatus, Artifact, StreamResponse } from "./a2a-types.js";
+import type { Task, TaskStatus, Artifact, StreamResponse, Message } from "./a2a-types.js";
 
 export interface TaskStore {
   create(init: { contextId?: string }): Promise<Task>;
@@ -8,6 +8,7 @@ export interface TaskStore {
   appendArtifact(id: string, artifact: Artifact): Promise<void>;
   appendStreamChunk(id: string, chunk: StreamResponse): Promise<void>;
   appendHistoryEntry(id: string, status: TaskStatus): Promise<void>;
+  updateStatus(id: string, status: TaskStatus): Promise<void>;
   delete(id: string): Promise<void>;
 }
 
@@ -57,17 +58,32 @@ export class InMemoryTaskStore implements TaskStore {
     existing.artifacts = [...(existing.artifacts ?? []), structuredClone(artifact)];
   }
 
+  async appendMessage(id: string, message: Message): Promise<void> {
+    const existing = this.store.get(id);
+    if (!existing) throw new Error(`task not found: ${id}`);
+    existing.history = [...(existing.history ?? []), structuredClone(message)];
+  }
+
   async appendStreamChunk(id: string, chunk: StreamResponse): Promise<void> {
     if (chunk.kind === "artifact-update") {
       await this.appendArtifact(id, chunk.artifact);
     } else if (chunk.kind === "status-update") {
       await this.appendHistoryEntry(id, chunk.status);
+    } else if (chunk.kind === "message") {
+      await this.appendMessage(id, chunk.message);
+    } else if (chunk.kind === "task") {
+      // Typically emitted by the runner, but skip if seen in stream to avoid unhandled kind error
     } else {
-      throw new Error(`Unhandled stream chunk kind "${chunk.kind}" for task ${id}`);
+      const unknownChunk = chunk as unknown as { kind: string };
+      throw new Error(`Unhandled stream chunk kind "${unknownChunk.kind}" for task ${id}`);
     }
   }
 
   async appendHistoryEntry(id: string, status: TaskStatus): Promise<void> {
+    await this.updateStatus(id, status);
+  }
+
+  async updateStatus(id: string, status: TaskStatus): Promise<void> {
     const existing = this.store.get(id);
     if (!existing) throw new Error(`task not found: ${id}`);
 
