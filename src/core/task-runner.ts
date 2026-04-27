@@ -48,6 +48,16 @@ export class TaskRunner {
     let firstYielded = false;
 
     for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
+      if (opts.abortSignal.aborted) {
+        const canceled: TaskStatus = {
+          state: "TASK_STATE_CANCELED",
+          timestamp: new Date().toISOString(),
+        };
+        await this.taskStore.update(task.id, { status: canceled });
+        await this.taskStore.appendHistoryEntry(task.id, canceled);
+        yield { kind: "status-update", status: canceled };
+        return;
+      }
       try {
         for await (const chunk of plugin.execute(message, ctx)) {
           if (!firstYielded) {
