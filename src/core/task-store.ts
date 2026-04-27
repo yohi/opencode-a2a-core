@@ -8,6 +8,7 @@ export interface TaskStore {
   appendArtifact(id: string, artifact: Artifact): Promise<void>;
   appendStreamChunk(id: string, chunk: StreamResponse): Promise<void>;
   appendHistoryEntry(id: string, status: TaskStatus): Promise<void>;
+  updateStatus(id: string, status: TaskStatus): Promise<void>;
   delete(id: string): Promise<void>;
 }
 

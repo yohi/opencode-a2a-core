@@ -3,8 +3,7 @@ import type { A2APluginContext } from "./plugin-interface.js";
 import type { PluginRegistry } from "./registry.js";
 import type { TaskStore } from "./task-store.js";
 import type { Logger } from "./logger.js";
-import { NonRetriableError, serializeError } from "./errors.js";
-import { computeBackoffMs } from "./helpers/exponential-backoff.js";
+import { NonRetriableError } from "./errors.js";
 
 export interface TaskRunnerOptions {
   maxAttempts: number;
@@ -53,8 +52,8 @@ export class TaskRunner {
 
     try {
       for await (const chunk of plugin.execute(message, ctx)) {
-        yield chunk;
         await this.taskStore.appendStreamChunk(task.id, chunk);
+        yield chunk;
       }
     } catch (e) {
       const failedStatus: TaskStatus = {
