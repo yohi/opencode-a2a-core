@@ -3,7 +3,7 @@ import { PluginRegistry } from "../../src/core/registry.js";
 import { InMemoryTaskStore } from "../../src/core/task-store.js";
 import { TaskRunner } from "../../src/core/task-runner.js";
 import { drain, mkMessage, mkPlugin, silentLogger } from "./_helpers.js";
-import type { Task, TaskStatus } from "../../src/core/a2a-types.js";
+import type { Task, TaskStatus, StreamResponse } from "../../src/core/a2a-types.js";
 import { NonRetriableError } from "../../src/core/errors.js";
 
 describe("TaskRunner — happy path", () => {
@@ -238,10 +238,9 @@ describe("TaskRunner — all attempts fail", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
+      // eslint-disable-next-line require-yield
       mkPlugin("always-fail", async function* () {
         attempts++;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _: never = undefined as never;
         throw new Error(`boom-${attempts}`);
       }),
     );
@@ -253,10 +252,19 @@ describe("TaskRunner — all attempts fail", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out = await drain(runner.run("always-fail", mkMessage(), { abortSignal: ctl.signal }));
+
+    const out: StreamResponse[] = [];
+    const runPromise = (async () => {
+      for await (const chunk of runner.run("always-fail", mkMessage(), { abortSignal: ctl.signal })) {
+        out.push(chunk);
+      }
+    })();
+
+    await expect(runPromise).rejects.toThrow(/boom-3/);
     expect(attempts).toBe(3);
 
     const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.kind).toBe("status-update");
     expect(last.status.state).toBe("TASK_STATE_FAILED");
     expect(last.status.message).toMatch(/boom-3/);
   });
