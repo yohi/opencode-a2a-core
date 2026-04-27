@@ -159,3 +159,34 @@ describe("TaskRunner — cancellation mid-stream", () => {
     expect(last.status.state).toBe("TASK_STATE_CANCELED");
   });
 });
+
+describe("TaskRunner — post-yield error does not retry", () => {
+  it("failure after first yield triggers FAILED without retry", async () => {
+    let attempts = 0;
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("yield-then-fail", async function* () {
+        attempts++;
+        yield {
+          kind: "artifact-update",
+          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "partial" }] },
+        };
+        throw new Error("after-yield-boom");
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("yield-then-fail", mkMessage(), { abortSignal: ctl.signal }));
+    expect(attempts).toBe(1); // no retry
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(last.status.message).toMatch(/after-yield-boom/);
+  });
+});
