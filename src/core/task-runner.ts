@@ -3,7 +3,8 @@ import type { A2APluginContext } from "./plugin-interface.js";
 import type { PluginRegistry } from "./registry.js";
 import type { TaskStore } from "./task-store.js";
 import type { Logger } from "./logger.js";
-import { NonRetriableError } from "./errors.js";
+import { NonRetriableError, serializeError } from "./errors.js";
+import { computeBackoffMs } from "./helpers/exponential-backoff.js";
 
 export interface TaskRunnerOptions {
   maxAttempts: number;
@@ -43,36 +44,95 @@ export class TaskRunner {
       ...(opts.contextId !== undefined ? { contextId: opts.contextId } : {}),
     };
 
-    const workingStatus: TaskStatus = {
-      state: "TASK_STATE_WORKING",
-      timestamp: new Date().toISOString(),
-    };
-    await this.taskStore.updateStatus(task.id, workingStatus);
-    yield { kind: "status-update", status: workingStatus };
+    let lastError: unknown;
+    let workingStatusEmitted = false;
+    let chunksYielded = false;
 
-    try {
-      for await (const chunk of plugin.execute(message, ctx)) {
-        await this.taskStore.appendStreamChunk(task.id, chunk);
-        yield chunk;
+    for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
+      try {
+        if (!workingStatusEmitted) {
+          const workingStatus: TaskStatus = {
+            state: "TASK_STATE_WORKING",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, workingStatus);
+          yield { kind: "status-update", status: workingStatus };
+          workingStatusEmitted = true;
+        }
+
+        for await (const chunk of plugin.execute(message, ctx)) {
+          chunksYielded = true;
+          await this.taskStore.appendStreamChunk(task.id, chunk);
+          yield chunk;
+        }
+
+        const currentTask = await this.taskStore.get(task.id);
+        if (currentTask?.status.state === "TASK_STATE_WORKING") {
+          const completedStatus: TaskStatus = {
+            state: "TASK_STATE_COMPLETED",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, completedStatus);
+          yield { kind: "status-update", status: completedStatus };
+        }
+        return;
+      } catch (err) {
+        lastError = err;
+        this.options.logger.warn("plugin execute failed", {
+          taskId: task.id,
+          pluginId,
+          attempt,
+          error: serializeError(err).message,
+        });
+        
+        // If we already started yielding chunks, don't retry as it might result in duplicate partial data
+        if (chunksYielded) break;
+        
+        if (err instanceof NonRetriableError) break;
+        
+        if (attempt < this.options.maxAttempts) {
+          try {
+            await this.sleep(
+              computeBackoffMs(attempt, {
+                initialMs: this.options.initialBackoffMs,
+                multiplier: this.options.backoffMultiplier,
+                jitterRatio: this.options.jitterRatio,
+              }),
+              opts.abortSignal,
+            );
+          } catch (sleepErr) {
+            lastError = sleepErr;
+            // Break loop on sleep failure (e.g. AbortSignal) to ensure FAILED status is emitted
+            break;
+          }
+        }
       }
-    } catch (e) {
-      const failedStatus: TaskStatus = {
-        state: "TASK_STATE_FAILED",
-        timestamp: new Date().toISOString(),
-      };
-      await this.taskStore.updateStatus(task.id, failedStatus);
-      yield { kind: "status-update", status: failedStatus };
-      throw e;
     }
 
-    const currentTask = await this.taskStore.get(task.id);
-    if (currentTask?.status.state === "TASK_STATE_WORKING") {
-      const completedStatus: TaskStatus = {
-        state: "TASK_STATE_COMPLETED",
-        timestamp: new Date().toISOString(),
+    const failed: TaskStatus = {
+      state: "TASK_STATE_FAILED",
+      timestamp: new Date().toISOString(),
+      message: serializeError(lastError).message,
+    };
+    await this.taskStore.updateStatus(task.id, failed);
+    yield { kind: "status-update", status: failed };
+    throw lastError;
+  }
+
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        return reject(signal.reason);
+      }
+      const timeout = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timeout);
+        reject(signal?.reason);
       };
-      await this.taskStore.updateStatus(task.id, completedStatus);
-      yield { kind: "status-update", status: completedStatus };
-    }
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
   }
 }
