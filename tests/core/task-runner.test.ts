@@ -32,5 +32,42 @@ describe("TaskRunner — happy path", () => {
     expect(firstStatus.status.state).toBe("TASK_STATE_WORKING");
     const lastStatus = out[3] as { status: { state: string } };
     expect(lastStatus.status.state).toBe("TASK_STATE_COMPLETED");
+
+    // Verify persistence
+    const taskId = (out[0] as any).task.id;
+    const persisted = await store.get(taskId);
+    expect(persisted?.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(persisted?.statusHistory).toHaveLength(2);
+    expect(persisted?.statusHistory?.[0].state).toBe("TASK_STATE_WORKING");
+    expect(persisted?.statusHistory?.[1].state).toBe("TASK_STATE_COMPLETED");
+  });
+
+  it("failure in plugin yields task → WORKING → FAILED and persists it", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("p", async function* () {
+        throw new Error("boom");
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 1,
+      initialBackoffMs: 10,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const run = () => drain(runner.run("p", mkMessage(), { abortSignal: ctl.signal }));
+
+    await expect(run()).rejects.toThrow("boom");
+
+    // Since it threw, we need to inspect the store manually.
+    // We can't easily get the taskId from 'run()' because it threw,
+    // but we know it's the only task in the store.
+    const tasks = (store as any).store.values();
+    const task = tasks.next().value;
+    expect(task.status.state).toBe("TASK_STATE_FAILED");
+    expect(task.statusHistory?.[task.statusHistory.length - 1].state).toBe("TASK_STATE_FAILED");
   });
 });

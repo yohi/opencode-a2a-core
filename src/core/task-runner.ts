@@ -48,21 +48,29 @@ export class TaskRunner {
       state: "TASK_STATE_WORKING",
       timestamp: new Date().toISOString(),
     };
-    await this.taskStore.update(task.id, { status: workingStatus });
-    await this.taskStore.appendHistoryEntry(task.id, workingStatus);
+    await this.taskStore.updateStatus(task.id, workingStatus);
     yield { kind: "status-update", status: workingStatus };
 
-    for await (const chunk of plugin.execute(message, ctx)) {
-      yield chunk;
-      await this.taskStore.appendStreamChunk(task.id, chunk);
+    try {
+      for await (const chunk of plugin.execute(message, ctx)) {
+        yield chunk;
+        await this.taskStore.appendStreamChunk(task.id, chunk);
+      }
+    } catch (e) {
+      const failedStatus: TaskStatus = {
+        state: "TASK_STATE_FAILED",
+        timestamp: new Date().toISOString(),
+      };
+      await this.taskStore.updateStatus(task.id, failedStatus);
+      yield { kind: "status-update", status: failedStatus };
+      throw e;
     }
 
     const completedStatus: TaskStatus = {
       state: "TASK_STATE_COMPLETED",
       timestamp: new Date().toISOString(),
     };
-    await this.taskStore.update(task.id, { status: completedStatus });
-    await this.taskStore.appendHistoryEntry(task.id, completedStatus);
+    await this.taskStore.updateStatus(task.id, completedStatus);
     yield { kind: "status-update", status: completedStatus };
   }
 }

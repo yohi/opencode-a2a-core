@@ -68,6 +68,10 @@ export class InMemoryTaskStore implements TaskStore {
   }
 
   async appendHistoryEntry(id: string, status: TaskStatus): Promise<void> {
+    await this.updateStatus(id, status);
+  }
+
+  async updateStatus(id: string, status: TaskStatus): Promise<void> {
     const existing = this.store.get(id);
     if (!existing) throw new Error(`task not found: ${id}`);
 

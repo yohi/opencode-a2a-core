@@ -27,7 +27,7 @@ export function mkPlugin(
     async initialize() {},
     async dispose() {},
     execute: exec,
-    metadata: () => ({ skill: { id, name: id, description: "" } }),
+    metadata: () => ({ skills: [{ id, name: id, description: "" }] }),
   };
 }
 
