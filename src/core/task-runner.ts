@@ -86,6 +86,16 @@ export class TaskRunner {
         }
         return;
       } catch (err) {
+        if (opts.abortSignal.aborted) {
+          const canceled: TaskStatus = {
+            state: "TASK_STATE_CANCELED",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, canceled);
+          yield { kind: "status-update", status: canceled };
+          return;
+        }
+
         lastError = err;
         this.options.logger.warn("plugin execute failed", {
           taskId: task.id,
@@ -111,11 +121,21 @@ export class TaskRunner {
             );
           } catch (sleepErr) {
             lastError = sleepErr;
-            // Break loop on sleep failure (e.g. AbortSignal) to ensure FAILED status is emitted
+            // Break loop on sleep failure (e.g. AbortSignal)
             break;
           }
         }
       }
+    }
+
+    if (opts.abortSignal.aborted) {
+      const canceled: TaskStatus = {
+        state: "TASK_STATE_CANCELED",
+        timestamp: new Date().toISOString(),
+      };
+      await this.taskStore.updateStatus(task.id, canceled);
+      yield { kind: "status-update", status: canceled };
+      return;
     }
 
     const failed: TaskStatus = {

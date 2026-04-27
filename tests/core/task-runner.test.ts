@@ -198,7 +198,7 @@ describe("TaskRunner — retries and errors", () => {
     expect(attempts).toBe(1);
   });
 
-  it("aborts sleep when AbortSignal is triggered and sets FAILED status", async () => {
+  it("aborts sleep when AbortSignal is triggered and sets CANCELED status", async () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
@@ -221,14 +221,18 @@ describe("TaskRunner — retries and errors", () => {
     await new Promise((r) => setTimeout(r, 100));
     ctl.abort("user cancel");
 
-    await expect(runPromise).rejects.toBe("user cancel");
+    const events = await runPromise;
+    const lastEvent = events[events.length - 1];
+    expect(lastEvent.kind).toBe("status-update");
+    if (lastEvent.kind === "status-update") {
+      expect(lastEvent.status.state).toBe("TASK_STATE_CANCELED");
+    }
 
-    // Verify status is updated to FAILED in store
+    // Verify status is updated to CANCELED in store
     const tasks = (store as unknown as { store: Map<string, Task> }).store.values();
     const task = tasks.next().value;
     if (!task) throw new Error("task not found in store");
-    expect(task.status.state).toBe("TASK_STATE_FAILED");
-    expect(task.status.message).toBe("user cancel");
+    expect(task.status.state).toBe("TASK_STATE_CANCELED");
   });
 });
 
@@ -299,5 +303,53 @@ describe("TaskRunner — cancellation before start", () => {
     const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
     expect(last.kind).toBe("status-update");
     expect(last.status.state).toBe("TASK_STATE_CANCELED");
+  });
+});
+
+describe("TaskRunner — cancellation mid-stream", () => {
+  it("when abort fires while plugin is yielding, run terminates with CANCELED", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    const ctl = new AbortController();
+    registry.register(
+      mkPlugin("slow", async function* (_m, ctx) {
+        yield {
+          kind: "artifact-update",
+          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "part1" }] },
+        };
+        // Simulate work that respects abort
+        await new Promise<void>((resolve, reject) => {
+          if (ctx.abortSignal.aborted) return reject(new Error("aborted"));
+          ctx.abortSignal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+          setTimeout(resolve, 500);
+        });
+        yield {
+          kind: "artifact-update",
+          artifact: { artifactId: "a2", parts: [{ kind: "text", text: "part2" }] },
+        };
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+
+    const out: any[] = [];
+    for await (const chunk of runner.run("slow", mkMessage(), { abortSignal: ctl.signal })) {
+      out.push(chunk);
+      if (chunk.kind === "artifact-update") {
+        ctl.abort();
+      }
+    }
+
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
+    expect(last.status.state).toBe("TASK_STATE_CANCELED");
+
+    // Verify persistence in store
+    const task = await store.get(out[0].task.id);
+    expect(task?.status.state).toBe("TASK_STATE_CANCELED");
   });
 });
