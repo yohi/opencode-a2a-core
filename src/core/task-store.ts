@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Task, TaskStatus, Artifact, StreamResponse } from "./a2a-types.js";
+import type { Task, TaskStatus, Artifact, StreamResponse, Message } from "./a2a-types.js";
 
 export interface TaskStore {
   create(init: { contextId?: string }): Promise<Task>;
@@ -74,7 +74,8 @@ export class InMemoryTaskStore implements TaskStore {
     } else if (chunk.kind === "task") {
       // Typically emitted by the runner, but skip if seen in stream to avoid unhandled kind error
     } else {
-      throw new Error(`Unhandled stream chunk kind "${(chunk as any).kind}" for task ${id}`);
+      const unknownChunk = chunk as unknown as { kind: string };
+      throw new Error(`Unhandled stream chunk kind "${unknownChunk.kind}" for task ${id}`);
     }
   }
 

@@ -114,10 +114,10 @@ describe("InMemoryTaskStore", () => {
     const t = await store.create({});
     
     // Using a non-existent kind to trigger error
-    const chunk: any = { 
+    const chunk = { 
       kind: "unknown-kind", 
       data: {}
-    };
+    } as unknown as StreamResponse;
     
     await expect(store.appendStreamChunk(t.id, chunk)).rejects.toThrow(/Unhandled stream chunk kind "unknown-kind"/);
   });
