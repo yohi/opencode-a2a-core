@@ -3,7 +3,7 @@ import { PluginRegistry } from "../../src/core/registry.js";
 import { InMemoryTaskStore } from "../../src/core/task-store.js";
 import { TaskRunner } from "../../src/core/task-runner.js";
 import { drain, mkMessage, mkPlugin, silentLogger } from "./_helpers.js";
-import type { Task, TaskStatus } from "../../src/core/a2a-types.js";
+import type { Task, TaskStatus, StreamResponse } from "../../src/core/a2a-types.js";
 import { NonRetriableError } from "../../src/core/errors.js";
 
 describe("TaskRunner — happy path", () => {
@@ -229,5 +229,43 @@ describe("TaskRunner — retries and errors", () => {
     if (!task) throw new Error("task not found in store");
     expect(task.status.state).toBe("TASK_STATE_FAILED");
     expect(task.status.message).toBe("user cancel");
+  });
+});
+
+describe("TaskRunner — all attempts fail", () => {
+  it("after maxAttempts fails, emits FAILED with error in status.message", async () => {
+    let attempts = 0;
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      // eslint-disable-next-line require-yield
+      mkPlugin("always-fail", async function* () {
+        attempts++;
+        throw new Error(`boom-${attempts}`);
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+
+    const out: StreamResponse[] = [];
+    const runPromise = (async () => {
+      for await (const chunk of runner.run("always-fail", mkMessage(), { abortSignal: ctl.signal })) {
+        out.push(chunk);
+      }
+    })();
+
+    await expect(runPromise).rejects.toThrow(/boom-3/);
+    expect(attempts).toBe(3);
+
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.kind).toBe("status-update");
+    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(last.status.message).toMatch(/boom-3/);
   });
 });
