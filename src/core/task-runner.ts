@@ -44,25 +44,65 @@ export class TaskRunner {
       ...(opts.contextId !== undefined ? { contextId: opts.contextId } : {}),
     };
 
-    const workingStatus: TaskStatus = {
-      state: "TASK_STATE_WORKING",
-      timestamp: new Date().toISOString(),
-    };
-    await this.taskStore.update(task.id, { status: workingStatus });
-    await this.taskStore.appendHistoryEntry(task.id, workingStatus);
-    yield { kind: "status-update", status: workingStatus };
+    let lastError: unknown;
+    let firstYielded = false;
 
-    for await (const chunk of plugin.execute(message, ctx)) {
-      yield chunk;
-      await this.taskStore.appendStreamChunk(task.id, chunk);
+    for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
+      try {
+        for await (const chunk of plugin.execute(message, ctx)) {
+          if (!firstYielded) {
+            firstYielded = true;
+            const workingStatus: TaskStatus = {
+              state: "TASK_STATE_WORKING",
+              timestamp: new Date().toISOString(),
+            };
+            await this.taskStore.update(task.id, { status: workingStatus });
+            await this.taskStore.appendHistoryEntry(task.id, workingStatus);
+            yield { kind: "status-update", status: workingStatus };
+          }
+          yield chunk;
+          await this.taskStore.appendStreamChunk(task.id, chunk);
+        }
+        const completedStatus: TaskStatus = {
+          state: "TASK_STATE_COMPLETED",
+          timestamp: new Date().toISOString(),
+        };
+        await this.taskStore.update(task.id, { status: completedStatus });
+        await this.taskStore.appendHistoryEntry(task.id, completedStatus);
+        yield { kind: "status-update", status: completedStatus };
+        return;
+      } catch (err) {
+        lastError = err;
+        this.options.logger.warn("plugin execute failed", {
+          taskId: task.id,
+          pluginId,
+          attempt,
+          error: serializeError(err).message,
+        });
+        if (firstYielded) break;
+        if (attempt < this.options.maxAttempts) {
+          await this.sleep(
+            computeBackoffMs(attempt, {
+              initialMs: this.options.initialBackoffMs,
+              multiplier: this.options.backoffMultiplier,
+              jitterRatio: this.options.jitterRatio,
+            }),
+          );
+        }
+      }
     }
 
-    const completedStatus: TaskStatus = {
-      state: "TASK_STATE_COMPLETED",
+    const failed: TaskStatus = {
+      state: "TASK_STATE_FAILED",
       timestamp: new Date().toISOString(),
+      message: serializeError(lastError).message,
     };
-    await this.taskStore.update(task.id, { status: completedStatus });
-    await this.taskStore.appendHistoryEntry(task.id, completedStatus);
-    yield { kind: "status-update", status: completedStatus };
+    await this.taskStore.update(task.id, { status: failed });
+    await this.taskStore.appendHistoryEntry(task.id, failed);
+    yield { kind: "status-update", status: failed };
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
   }
 }

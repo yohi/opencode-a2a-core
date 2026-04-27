@@ -34,3 +34,34 @@ describe("TaskRunner — happy path", () => {
     expect(lastStatus.status.state).toBe("TASK_STATE_COMPLETED");
   });
 });
+
+describe("TaskRunner — retry before first yield", () => {
+  it("retries on throw before first yield, succeeds on 2nd attempt, emits COMPLETED", async () => {
+    let attempts = 0;
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("retry-then-ok", async function* () {
+        attempts++;
+        if (attempts === 1) throw new Error("transient");
+        yield {
+          kind: "artifact-update",
+          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "ok" }] },
+        };
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("retry-then-ok", mkMessage(), { abortSignal: ctl.signal }));
+    expect(attempts).toBe(2);
+    const lastStatus = out.at(-1) as { kind: "status-update"; status: { state: string } };
+    expect(lastStatus.kind).toBe("status-update");
+    expect(lastStatus.status.state).toBe("TASK_STATE_COMPLETED");
+  });
+});
