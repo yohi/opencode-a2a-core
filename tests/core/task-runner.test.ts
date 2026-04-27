@@ -121,3 +121,41 @@ describe("TaskRunner — cancellation before start", () => {
     expect(last.status.state).toBe("TASK_STATE_CANCELED");
   });
 });
+
+describe("TaskRunner — cancellation mid-stream", () => {
+  it("when abort fires while plugin is yielding, run terminates with CANCELED", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    const ctl = new AbortController();
+    registry.register(
+      mkPlugin("slow", async function* (_m, ctx) {
+        yield {
+          kind: "artifact-update",
+          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "part1" }] },
+        };
+        // Simulate work that respects abort
+        await new Promise<void>((resolve, reject) => {
+          if (ctx.abortSignal.aborted) return reject(new Error("aborted"));
+          ctx.abortSignal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+          setTimeout(resolve, 500);
+        });
+        yield {
+          kind: "artifact-update",
+          artifact: { artifactId: "a2", parts: [{ kind: "text", text: "part2" }] },
+        };
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+
+    queueMicrotask(() => ctl.abort());
+    const out = await drain(runner.run("slow", mkMessage(), { abortSignal: ctl.signal }));
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
+    expect(last.status.state).toBe("TASK_STATE_CANCELED");
+  });
+});

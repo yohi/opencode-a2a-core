@@ -81,16 +81,26 @@ export class TaskRunner {
         await this.taskStore.appendHistoryEntry(task.id, completedStatus);
         yield { kind: "status-update", status: completedStatus };
         return;
-      } catch (err) {
-        lastError = err;
-        this.options.logger.warn("plugin execute failed", {
-          taskId: task.id,
-          pluginId,
-          attempt,
-          error: serializeError(err).message,
-        });
-        if (firstYielded) break;
-        if (attempt < this.options.maxAttempts) {
+    } catch (err) {
+      if (opts.abortSignal.aborted) {
+        const canceled: TaskStatus = {
+          state: "TASK_STATE_CANCELED",
+          timestamp: new Date().toISOString(),
+        };
+        await this.taskStore.update(task.id, { status: canceled });
+        await this.taskStore.appendHistoryEntry(task.id, canceled);
+        yield { kind: "status-update", status: canceled };
+        return;
+      }
+      lastError = err;
+      this.options.logger.warn("plugin execute failed", {
+        taskId: task.id,
+        pluginId,
+        attempt,
+        error: serializeError(err).message,
+      });
+      if (firstYielded) break;
+      if (attempt < this.options.maxAttempts) {
           await this.sleep(
             computeBackoffMs(attempt, {
               initialMs: this.options.initialBackoffMs,
