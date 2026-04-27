@@ -291,7 +291,13 @@ describe("TaskRunner — cancellation before start", () => {
     ctl.abort();
     const out = await drain(runner.run("never", mkMessage(), { abortSignal: ctl.signal }));
     expect(calls).toBe(0);
+
+    const taskId = (out[0] as { task: { id: string } }).task.id;
+    const persisted = await store.get(taskId);
+    expect(persisted?.status.state).toBe("TASK_STATE_CANCELED");
+
     const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
+    expect(last.kind).toBe("status-update");
     expect(last.status.state).toBe("TASK_STATE_CANCELED");
   });
 });

@@ -54,8 +54,7 @@ export class TaskRunner {
           state: "TASK_STATE_CANCELED",
           timestamp: new Date().toISOString(),
         };
-        await this.taskStore.update(task.id, { status: canceled });
-        await this.taskStore.appendHistoryEntry(task.id, canceled);
+        await this.taskStore.updateStatus(task.id, canceled);
         yield { kind: "status-update", status: canceled };
         return;
       }
