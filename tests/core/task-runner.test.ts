@@ -65,3 +65,33 @@ describe("TaskRunner — retry before first yield", () => {
     expect(lastStatus.status.state).toBe("TASK_STATE_COMPLETED");
   });
 });
+
+describe("TaskRunner — all attempts fail", () => {
+  it("after maxAttempts fails, emits FAILED with error in status.message", async () => {
+    let attempts = 0;
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("always-fail", async function* () {
+        attempts++;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _: never = undefined as never;
+        throw new Error(`boom-${attempts}`);
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("always-fail", mkMessage(), { abortSignal: ctl.signal }));
+    expect(attempts).toBe(3);
+
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(last.status.message).toMatch(/boom-3/);
+  });
+});
