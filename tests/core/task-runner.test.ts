@@ -198,7 +198,7 @@ describe("TaskRunner — retries and errors", () => {
     expect(attempts).toBe(1);
   });
 
-  it("aborts sleep when AbortSignal is triggered", async () => {
+  it("aborts sleep when AbortSignal is triggered and sets FAILED status", async () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
@@ -222,5 +222,12 @@ describe("TaskRunner — retries and errors", () => {
     ctl.abort("user cancel");
 
     await expect(runPromise).rejects.toBe("user cancel");
+
+    // Verify status is updated to FAILED in store
+    const tasks = (store as unknown as { store: Map<string, Task> }).store.values();
+    const task = tasks.next().value;
+    if (!task) throw new Error("task not found in store");
+    expect(task.status.state).toBe("TASK_STATE_FAILED");
+    expect(task.status.message).toBe("user cancel");
   });
 });

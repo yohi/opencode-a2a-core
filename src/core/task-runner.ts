@@ -91,14 +91,20 @@ export class TaskRunner {
         if (err instanceof NonRetriableError) break;
         
         if (attempt < this.options.maxAttempts) {
-          await this.sleep(
-            computeBackoffMs(attempt, {
-              initialMs: this.options.initialBackoffMs,
-              multiplier: this.options.backoffMultiplier,
-              jitterRatio: this.options.jitterRatio,
-            }),
-            opts.abortSignal,
-          );
+          try {
+            await this.sleep(
+              computeBackoffMs(attempt, {
+                initialMs: this.options.initialBackoffMs,
+                multiplier: this.options.backoffMultiplier,
+                jitterRatio: this.options.jitterRatio,
+              }),
+              opts.abortSignal,
+            );
+          } catch (sleepErr) {
+            lastError = sleepErr;
+            // Break loop on sleep failure (e.g. AbortSignal) to ensure FAILED status is emitted
+            break;
+          }
         }
       }
     }
