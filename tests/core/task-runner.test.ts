@@ -3,6 +3,7 @@ import { PluginRegistry } from "../../src/core/registry.js";
 import { InMemoryTaskStore } from "../../src/core/task-store.js";
 import { TaskRunner } from "../../src/core/task-runner.js";
 import { drain, mkMessage, mkPlugin, silentLogger } from "./_helpers.js";
+import { NonRetriableError } from "../../src/core/errors.js";
 
 describe("TaskRunner — happy path", () => {
   it("1 attempt success yields task → WORKING → chunks → COMPLETED", async () => {
@@ -188,5 +189,51 @@ describe("TaskRunner — post-yield error does not retry", () => {
     const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
     expect(last.status.state).toBe("TASK_STATE_FAILED");
     expect(last.status.message).toMatch(/after-yield-boom/);
+  });
+});
+
+describe("TaskRunner — non-retriable errors", () => {
+  it("emits FAILED without retry when plugin throws NonRetriableError", async () => {
+    let attempts = 0;
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("permanent", async function* () {
+        attempts++;
+        throw new NonRetriableError("bad-config");
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("permanent", mkMessage(), { abortSignal: ctl.signal }));
+    expect(attempts).toBe(1);
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(last.status.message).toMatch(/bad-config/);
+  });
+
+  it("missing plugin id yields { kind: task } then FAILED (not an uncaught throw)", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("nope", mkMessage(), { abortSignal: ctl.signal }));
+    const kinds = out.map((c) => c.kind);
+    expect(kinds[0]).toBe("task");
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(last.status.message).toMatch(/plugin not found/i);
   });
 });
