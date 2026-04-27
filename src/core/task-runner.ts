@@ -45,7 +45,8 @@ export class TaskRunner {
     };
 
     let lastError: unknown;
-    let firstYielded = false;
+    let workingStatusEmitted = false;
+    let chunksYielded = false;
 
     for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
       if (opts.abortSignal.aborted) {
@@ -53,63 +54,88 @@ export class TaskRunner {
           state: "TASK_STATE_CANCELED",
           timestamp: new Date().toISOString(),
         };
-        await this.taskStore.update(task.id, { status: canceled });
-        await this.taskStore.appendHistoryEntry(task.id, canceled);
+        await this.taskStore.updateStatus(task.id, canceled);
         yield { kind: "status-update", status: canceled };
         return;
       }
       try {
+        if (!workingStatusEmitted) {
+          const workingStatus: TaskStatus = {
+            state: "TASK_STATE_WORKING",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, workingStatus);
+          yield { kind: "status-update", status: workingStatus };
+          workingStatusEmitted = true;
+        }
+
         for await (const chunk of plugin.execute(message, ctx)) {
-          if (!firstYielded) {
-            firstYielded = true;
-            const workingStatus: TaskStatus = {
-              state: "TASK_STATE_WORKING",
-              timestamp: new Date().toISOString(),
-            };
-            await this.taskStore.update(task.id, { status: workingStatus });
-            await this.taskStore.appendHistoryEntry(task.id, workingStatus);
-            yield { kind: "status-update", status: workingStatus };
-          }
-          yield chunk;
+          chunksYielded = true;
           await this.taskStore.appendStreamChunk(task.id, chunk);
+          yield chunk;
         }
-        const completedStatus: TaskStatus = {
-          state: "TASK_STATE_COMPLETED",
-          timestamp: new Date().toISOString(),
-        };
-        await this.taskStore.update(task.id, { status: completedStatus });
-        await this.taskStore.appendHistoryEntry(task.id, completedStatus);
-        yield { kind: "status-update", status: completedStatus };
+
+        const currentTask = await this.taskStore.get(task.id);
+        if (currentTask?.status.state === "TASK_STATE_WORKING") {
+          const completedStatus: TaskStatus = {
+            state: "TASK_STATE_COMPLETED",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, completedStatus);
+          yield { kind: "status-update", status: completedStatus };
+        }
         return;
-    } catch (err) {
-      if (opts.abortSignal.aborted) {
-        const canceled: TaskStatus = {
-          state: "TASK_STATE_CANCELED",
-          timestamp: new Date().toISOString(),
-        };
-        await this.taskStore.update(task.id, { status: canceled });
-        await this.taskStore.appendHistoryEntry(task.id, canceled);
-        yield { kind: "status-update", status: canceled };
-        return;
-      }
-      lastError = err;
-      this.options.logger.warn("plugin execute failed", {
-        taskId: task.id,
-        pluginId,
-        attempt,
-        error: serializeError(err).message,
-      });
-      if (firstYielded) break;
-      if (attempt < this.options.maxAttempts) {
-          await this.sleep(
-            computeBackoffMs(attempt, {
-              initialMs: this.options.initialBackoffMs,
-              multiplier: this.options.backoffMultiplier,
-              jitterRatio: this.options.jitterRatio,
-            }),
-          );
+      } catch (err) {
+        if (opts.abortSignal.aborted) {
+          const canceled: TaskStatus = {
+            state: "TASK_STATE_CANCELED",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, canceled);
+          yield { kind: "status-update", status: canceled };
+          return;
+        }
+
+        lastError = err;
+        this.options.logger.warn("plugin execute failed", {
+          taskId: task.id,
+          pluginId,
+          attempt,
+          error: serializeError(err).message,
+        });
+        
+        // If we already started yielding chunks, don't retry as it might result in duplicate partial data
+        if (chunksYielded) break;
+        
+        if (err instanceof NonRetriableError) break;
+        
+        if (attempt < this.options.maxAttempts) {
+          try {
+            await this.sleep(
+              computeBackoffMs(attempt, {
+                initialMs: this.options.initialBackoffMs,
+                multiplier: this.options.backoffMultiplier,
+                jitterRatio: this.options.jitterRatio,
+              }),
+              opts.abortSignal,
+            );
+          } catch (sleepErr) {
+            lastError = sleepErr;
+            // Break loop on sleep failure (e.g. AbortSignal)
+            break;
+          }
         }
       }
+    }
+
+    if (opts.abortSignal.aborted) {
+      const canceled: TaskStatus = {
+        state: "TASK_STATE_CANCELED",
+        timestamp: new Date().toISOString(),
+      };
+      await this.taskStore.updateStatus(task.id, canceled);
+      yield { kind: "status-update", status: canceled };
+      return;
     }
 
     const failed: TaskStatus = {
@@ -117,12 +143,25 @@ export class TaskRunner {
       timestamp: new Date().toISOString(),
       message: serializeError(lastError).message,
     };
-    await this.taskStore.update(task.id, { status: failed });
-    await this.taskStore.appendHistoryEntry(task.id, failed);
+    await this.taskStore.updateStatus(task.id, failed);
     yield { kind: "status-update", status: failed };
+    throw lastError;
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((r) => setTimeout(r, ms));
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        return reject(signal.reason);
+      }
+      const timeout = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timeout);
+        reject(signal?.reason);
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
   }
 }
