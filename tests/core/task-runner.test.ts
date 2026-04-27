@@ -337,9 +337,19 @@ describe("TaskRunner — cancellation mid-stream", () => {
       logger: silentLogger(),
     });
 
-    queueMicrotask(() => ctl.abort());
-    const out = await drain(runner.run("slow", mkMessage(), { abortSignal: ctl.signal }));
+    const out: any[] = [];
+    for await (const chunk of runner.run("slow", mkMessage(), { abortSignal: ctl.signal })) {
+      out.push(chunk);
+      if (chunk.kind === "artifact-update") {
+        ctl.abort();
+      }
+    }
+
     const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
     expect(last.status.state).toBe("TASK_STATE_CANCELED");
+
+    // Verify persistence in store
+    const task = await store.get(out[0].task.id);
+    expect(task?.status.state).toBe("TASK_STATE_CANCELED");
   });
 });
