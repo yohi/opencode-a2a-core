@@ -45,24 +45,27 @@ export class TaskRunner {
     };
 
     let lastError: unknown;
-    let firstYielded = false;
+    let workingStatusEmitted = false;
+    let chunksYielded = false;
 
     for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
       try {
-        for await (const chunk of plugin.execute(message, ctx)) {
-          if (!firstYielded) {
-            firstYielded = true;
-            const workingStatus: TaskStatus = {
-              state: "TASK_STATE_WORKING",
-              timestamp: new Date().toISOString(),
-            };
-            await this.taskStore.updateStatus(task.id, workingStatus);
-            yield { kind: "status-update", status: workingStatus };
-          }
-          yield chunk;
-          await this.taskStore.appendStreamChunk(task.id, chunk);
+        if (!workingStatusEmitted) {
+          const workingStatus: TaskStatus = {
+            state: "TASK_STATE_WORKING",
+            timestamp: new Date().toISOString(),
+          };
+          await this.taskStore.updateStatus(task.id, workingStatus);
+          yield { kind: "status-update", status: workingStatus };
+          workingStatusEmitted = true;
         }
-        
+
+        for await (const chunk of plugin.execute(message, ctx)) {
+          chunksYielded = true;
+          await this.taskStore.appendStreamChunk(task.id, chunk);
+          yield chunk;
+        }
+
         const currentTask = await this.taskStore.get(task.id);
         if (currentTask?.status.state === "TASK_STATE_WORKING") {
           const completedStatus: TaskStatus = {
@@ -81,7 +84,12 @@ export class TaskRunner {
           attempt,
           error: serializeError(err).message,
         });
-        if (firstYielded) break;
+        
+        // If we already started yielding chunks, don't retry as it might result in duplicate partial data
+        if (chunksYielded) break;
+        
+        if (err instanceof NonRetriableError) break;
+        
         if (attempt < this.options.maxAttempts) {
           await this.sleep(
             computeBackoffMs(attempt, {
@@ -89,6 +97,7 @@ export class TaskRunner {
               multiplier: this.options.backoffMultiplier,
               jitterRatio: this.options.jitterRatio,
             }),
+            opts.abortSignal,
           );
         }
       }
@@ -104,7 +113,20 @@ export class TaskRunner {
     throw lastError;
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((r) => setTimeout(r, ms));
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        return reject(signal.reason);
+      }
+      const timeout = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timeout);
+        reject(signal?.reason);
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
   }
 }
