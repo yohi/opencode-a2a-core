@@ -377,7 +377,7 @@ describe("TaskRunner — post-yield error does not retry", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out: any[] = [];
+    const out: StreamResponse[] = [];
     const runPromise = (async () => {
       for await (const chunk of runner.run("yield-then-fail", mkMessage(), { abortSignal: ctl.signal })) {
         out.push(chunk);
@@ -387,13 +387,19 @@ describe("TaskRunner — post-yield error does not retry", () => {
     await expect(runPromise).rejects.toThrow("after-yield-boom");
     expect(attempts).toBe(1); // no retry
 
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
-    expect(last.kind).toBe("status-update");
+    const last = out.at(-1);
+    if (!last || last.kind !== "status-update") {
+      throw new Error("Expected last chunk to be status-update");
+    }
     expect(last.status.state).toBe("TASK_STATE_FAILED");
     expect(last.status.message).toMatch(/after-yield-boom/);
 
     // Verify persistence in store
-    const task = await store.get(out[0].task.id);
+    const firstChunk = out[0];
+    if (!firstChunk || firstChunk.kind !== "task") {
+      throw new Error("Expected first chunk to be 'task'");
+    }
+    const task = await store.get(firstChunk.task.id);
     expect(task?.status.state).toBe("TASK_STATE_FAILED");
   });
 });
