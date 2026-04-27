@@ -65,11 +65,14 @@ export class TaskRunner {
       throw e;
     }
 
-    const completedStatus: TaskStatus = {
-      state: "TASK_STATE_COMPLETED",
-      timestamp: new Date().toISOString(),
-    };
-    await this.taskStore.updateStatus(task.id, completedStatus);
-    yield { kind: "status-update", status: completedStatus };
+    const currentTask = await this.taskStore.get(task.id);
+    if (currentTask?.status.state === "TASK_STATE_WORKING") {
+      const completedStatus: TaskStatus = {
+        state: "TASK_STATE_COMPLETED",
+        timestamp: new Date().toISOString(),
+      };
+      await this.taskStore.updateStatus(task.id, completedStatus);
+      yield { kind: "status-update", status: completedStatus };
+    }
   }
 }

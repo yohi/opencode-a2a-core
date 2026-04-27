@@ -70,4 +70,41 @@ describe("TaskRunner — happy path", () => {
     expect(task.status.state).toBe("TASK_STATE_FAILED");
     expect(task.statusHistory?.[task.statusHistory.length - 1].state).toBe("TASK_STATE_FAILED");
   });
+
+  it("does not overwrite terminal/special state set by plugin", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("p", async function* (msg, ctx) {
+        // Simulating a plugin that requires input
+        const inputRequired: any = {
+          state: "TASK_STATE_INPUT_REQUIRED",
+          timestamp: new Date().toISOString(),
+        };
+        // We use the store directly or via a chunk (appendStreamChunk handles status-update)
+        yield { kind: "status-update", status: inputRequired };
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 1,
+      initialBackoffMs: 10,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("p", mkMessage(), { abortSignal: ctl.signal }));
+
+    const statusUpdates = out.filter((c) => c.kind === "status-update") as any[];
+    // Should be: WORKING -> INPUT_REQUIRED (from plugin)
+    // Should NOT have COMPLETED at the end
+    expect(statusUpdates.map((s) => s.status.state)).toEqual([
+      "TASK_STATE_WORKING",
+      "TASK_STATE_INPUT_REQUIRED",
+    ]);
+
+    const taskId = (out[0] as any).task.id;
+    const persisted = await store.get(taskId);
+    expect(persisted?.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
+  });
 });
