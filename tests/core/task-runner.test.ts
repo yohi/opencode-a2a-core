@@ -269,3 +269,35 @@ describe("TaskRunner — all attempts fail", () => {
     expect(last.status.message).toMatch(/boom-3/);
   });
 });
+
+describe("TaskRunner — cancellation before start", () => {
+  it("if abortSignal is already aborted, emits CANCELED without calling plugin", async () => {
+    let calls = 0;
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("never", async function* () {
+        calls++;
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    ctl.abort();
+    const out = await drain(runner.run("never", mkMessage(), { abortSignal: ctl.signal }));
+    expect(calls).toBe(0);
+
+    const taskId = (out[0] as { task: { id: string } }).task.id;
+    const persisted = await store.get(taskId);
+    expect(persisted?.status.state).toBe("TASK_STATE_CANCELED");
+
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
+    expect(last.kind).toBe("status-update");
+    expect(last.status.state).toBe("TASK_STATE_CANCELED");
+  });
+});
