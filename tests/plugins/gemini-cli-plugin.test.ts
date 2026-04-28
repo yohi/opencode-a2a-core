@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { GeminiCliPlugin, GeminiConfigSchema, parseGeminiEvent } from "../../src/plugins/gemini-cli-plugin.js";
+import type { A2APluginContext } from "../../src/core/plugin-interface.js";
+import type { Message } from "../../src/core/a2a-types.js";
 
 describe("GeminiCliPlugin - config and metadata", () => {
   it("has expected id and semver-like version", () => {
@@ -31,20 +33,36 @@ describe("GeminiCliPlugin - config and metadata", () => {
 });
 
 describe("GeminiCliPlugin - lifecycle and execution guards", () => {
+  const createMockContext = (): A2APluginContext => ({
+    taskId: "test-task",
+    abortSignal: new AbortController().signal,
+    logger: {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    } as any,
+  });
+
+  const mockMessage: Message = {
+    role: "ROLE_USER",
+    parts: [{ kind: "text", text: "hi" }],
+  };
+
   it("throws error if execute is called before initialize", async () => {
     const plugin = new GeminiCliPlugin();
-    const ctx = { taskId: "test-task", abortSignal: new AbortController().signal };
-    const gen = plugin.execute({ parts: [{ kind: "text", text: "hi" }] }, ctx);
-    await expect(gen.next()).rejects.toThrow("GeminiCliPlugin is not initialized");
+    const ctx = createMockContext();
+    const gen = plugin.execute(mockMessage, ctx);
+    await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow("GeminiCliPlugin is not initialized");
   });
 
   it("dispose() resets initialization state", async () => {
     const plugin = new GeminiCliPlugin();
     await plugin.initialize(GeminiConfigSchema.parse({}));
     await plugin.dispose();
-    const ctx = { taskId: "test-task", abortSignal: new AbortController().signal };
-    const gen = plugin.execute({ parts: [{ kind: "text", text: "hi" }] }, ctx);
-    await expect(gen.next()).rejects.toThrow("GeminiCliPlugin is not initialized");
+    const ctx = createMockContext();
+    const gen = plugin.execute(mockMessage, ctx);
+    await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow("GeminiCliPlugin is not initialized");
   });
 });
 
