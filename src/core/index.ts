@@ -3,3 +3,6 @@ export * from "./errors.js";
 export * from "./logger.js";
 export * from "./plugin-interface.js";
 export * from "./define-plugin.js";
+export * from "./registry.js";
+export * from "./task-store.js";
+export * from "./task-runner.js";

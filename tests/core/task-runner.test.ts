@@ -403,3 +403,71 @@ describe("TaskRunner — post-yield error does not retry", () => {
     expect(task?.status.state).toBe("TASK_STATE_FAILED");
   });
 });
+
+describe("TaskRunner — non-retriable errors", () => {
+  it("emits FAILED without retry when plugin throws NonRetriableError", async () => {
+    let attempts = 0;
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("permanent", async function* () {
+        attempts++;
+        throw new NonRetriableError("bad-config");
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out: StreamResponse[] = [];
+    const runPromise = (async () => {
+      for await (const chunk of runner.run("permanent", mkMessage(), { abortSignal: ctl.signal })) {
+        out.push(chunk);
+      }
+    })();
+    await expect(runPromise).rejects.toThrow("bad-config");
+    expect(attempts).toBe(1);
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(last.status.message).toMatch(/bad-config/);
+  });
+
+  it("missing plugin id yields { kind: task } then FAILED (not an uncaught throw)", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 3,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("nope", mkMessage(), { abortSignal: ctl.signal }));
+    const kinds = out.map((c) => c.kind);
+    expect(kinds[0]).toBe("task");
+    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(last.status.message).toMatch(/plugin not found/i);
+  });
+
+  it("throws error immediately if maxAttempts is 0 or less", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 0,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    await expect(drain(runner.run("any", mkMessage(), { abortSignal: ctl.signal }))).rejects.toThrow(
+      "maxAttempts must be a positive integer",
+    );
+  });
+});
