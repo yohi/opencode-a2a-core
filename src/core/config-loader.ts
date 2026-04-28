@@ -50,8 +50,11 @@ function resolveEnvPlaceholders(value: unknown): unknown {
   }
 
   if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
+    const out: Record<string, unknown> = Object.create(null);
     for (const [key, nestedValue] of Object.entries(value)) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        continue;
+      }
       out[key] = resolveEnvPlaceholders(nestedValue);
     }
     return out;
