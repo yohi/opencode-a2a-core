@@ -116,6 +116,29 @@ describe('AgentCard endpoint', () => {
     expect(body.url).toBe('https://proxy.example.com');
   });
 
+  it('falls back to request.url origin when proxy headers are invalid or partial', async () => {
+    const app = createA2AServer({
+      plugin,
+      allowUnauthenticated: true,
+      trustProxy: true,
+    });
+
+    // Partial header
+    const res1 = await app.request('/.well-known/agent.json', {
+      headers: { 'X-Forwarded-Proto': 'https' },
+    });
+    expect((await res1.json()).url).toBe('http://localhost');
+
+    // Invalid scheme
+    const res2 = await app.request('/.well-known/agent.json', {
+      headers: {
+        'X-Forwarded-Proto': 'ftp',
+        'X-Forwarded-Host': 'example.com',
+      },
+    });
+    expect((await res2.json()).url).toBe('http://localhost');
+  });
+
   it('falls back to request.url origin', async () => {
     const app = createA2AServer({
       plugin,
@@ -274,7 +297,7 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
   // AgentCard endpoint (no auth required)
   app.get('/.well-known/agent.json', (c) => {
     const meta = options.plugin.metadata();
-    const url = resolveBaseUrl(c, options.baseUrl, options.trustProxy);
+    const url = resolveBaseUrl(c, options.baseUrl, options.trustProxy, logger);
     return c.json({
       name: options.plugin.id,
       url,
@@ -306,16 +329,26 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
 function resolveBaseUrl(
   c: { req: { url: string; header: (name: string) => string | undefined } },
   baseUrl?: string,
-  trustProxy?: boolean
+  trustProxy?: boolean,
+  logger?: Logger
 ): string {
   if (baseUrl) return baseUrl;
 
   if (trustProxy) {
-    const proto = c.req.header('x-forwarded-proto');
+    const proto = c.req.header('x-forwarded-proto')?.toLowerCase();
     const host = c.req.header('x-forwarded-host');
+
     if (proto && host) {
+      const isValidProto = proto === 'http' || proto === 'https';
       const firstHost = host.split(',')[0].trim();
-      return `${proto}://${firstHost}`;
+      // Simple authority validation (must not be empty and no obvious illegal chars)
+      const isValidHost = firstHost.length > 0 && !/[\s<>]/.test(firstHost);
+
+      if (isValidProto && isValidHost) {
+        return `${proto}://${firstHost}`;
+      }
+      
+      logger?.warn(`Rejected invalid X-Forwarded headers: proto=${proto}, host=${host}`);
     }
   }
 

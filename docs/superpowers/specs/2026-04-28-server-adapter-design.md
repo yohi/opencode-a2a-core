@@ -291,7 +291,11 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 1. `CreateA2AServerOptions.baseUrl` が設定されている場合: その値をそのまま使用（最優先・明示設定）
 2. `trustProxy: true` が設定されており、かつ `X-Forwarded-Proto` および `X-Forwarded-Host` ヘッダーが両方存在する場合:
    `${X-Forwarded-Proto}://${X-Forwarded-Host}` をオリジンとして使用
-   - `X-Forwarded-Host` がカンマ区切りの複数ホストを含む場合は最左の値を採用（RFC 7239 / X-Forwarded-* デファクト準拠）
+   - **バリデーションとフォールバックルール**:
+     - `X-Forwarded-Proto` は `http` または `https` (case-insensitive, 小文字に正規化) であること。
+     - `X-Forwarded-Host` は有効な authority 形式であること。カンマ区切りの複数ホストを含む場合は最左の値を採用し、空白をトリムする。
+     - いずれかの値が不正（未知のスキーム、ホストパース失敗、空、不正な文字を含む等）な場合は、そのペアを無視しフォールバック（後述）を適用する。
+     - 実装は診断のために拒否されたヘッダー値をログに記録することが望ましい。
 3. 上記いずれも該当しない場合: `new URL(c.req.url).origin` を使用（フォールバック）
 
 `trustProxy` のデフォルトは `false`。信頼できないプロキシからのヘッダーインジェクションを防ぐため、`X-Forwarded-*` ヘッダーを用いた URL 解決は `trustProxy: true` を明示した場合のみ有効となる。
@@ -336,6 +340,7 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | **AgentCard** | GET 正常系 | プラグインメタデータの JSON 返却 |
 | | `baseUrl` 明示設定 | `url` フィールドが設定値と一致 |
 | | `trustProxy: true` + `X-Forwarded-Proto` + `X-Forwarded-Host` 設定（baseUrl 未指定） | `url` フィールドがヘッダー由来のオリジンと一致 |
+| | `trustProxy: true` + 片方のヘッダーのみ存在 / 不正な値（未知のスキーム等） | ヘッダーを無視し `request.url` のオリジンと一致（フォールバック） |
 | | `trustProxy: false`（デフォルト）+ `X-Forwarded-*` ヘッダー設定 | ヘッダーを無視し `request.url` のオリジンと一致 |
 | | 何も設定なし | `url` フィールドが `request.url` のオリジンと一致（フォールバック） |
 
