@@ -27,7 +27,8 @@ export class TaskRunner {
     message: Message,
     opts: { abortSignal: AbortSignal; contextId?: string },
   ): AsyncIterable<StreamResponse> {
-    if (this.options.maxAttempts <= 0) {
+    const { maxAttempts } = this.options;
+    if (!Number.isFinite(maxAttempts) || !Number.isInteger(maxAttempts) || maxAttempts <= 0) {
       throw new Error("maxAttempts must be a positive integer");
     }
 

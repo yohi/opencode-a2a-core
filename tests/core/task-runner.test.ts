@@ -278,7 +278,13 @@ describe("TaskRunner — all attempts fail", () => {
     const last = out.at(-1) as { kind: "status-update"; status: TaskStatus };
     expect(last.kind).toBe("status-update");
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect((last.status.message?.parts[0] as any).text).toMatch(/boom-3/);
+
+    const part = last.status.message?.parts[0];
+    if (part && part.kind === "text") {
+      expect(part.text).toMatch(/boom-3/);
+    } else {
+      throw new Error("Expected text part in status message");
+    }
   });
 });
 
@@ -348,7 +354,7 @@ describe("TaskRunner — cancellation mid-stream", () => {
       logger: silentLogger(),
     });
 
-    const out: any[] = [];
+    const out: StreamResponse[] = [];
     for await (const chunk of runner.run("slow", mkMessage(), { abortSignal: ctl.signal })) {
       out.push(chunk);
       if (chunk.kind === "artifact-update") {
@@ -360,8 +366,13 @@ describe("TaskRunner — cancellation mid-stream", () => {
     expect(last.status.state).toBe("TASK_STATE_CANCELED");
 
     // Verify persistence in store
-    const task = await store.get(out[0].task.id);
-    expect(task?.status.state).toBe("TASK_STATE_CANCELED");
+    const first = out[0];
+    if (first.kind === "task") {
+      const task = await store.get(first.task.id);
+      expect(task?.status.state).toBe("TASK_STATE_CANCELED");
+    } else {
+      throw new Error("Expected first chunk to be 'task'");
+    }
   });
 });
 
@@ -422,6 +433,7 @@ describe("TaskRunner — non-retriable errors", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
+      // eslint-disable-next-line require-yield
       mkPlugin("permanent", async function* () {
         attempts++;
         throw new NonRetriableError("bad-config");
