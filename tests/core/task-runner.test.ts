@@ -454,4 +454,20 @@ describe("TaskRunner — non-retriable errors", () => {
     expect(last.status.state).toBe("TASK_STATE_FAILED");
     expect(last.status.message).toMatch(/plugin not found/i);
   });
+
+  it("throws error immediately if maxAttempts is 0 or less", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 0,
+      initialBackoffMs: 1,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    await expect(drain(runner.run("any", mkMessage(), { abortSignal: ctl.signal }))).rejects.toThrow(
+      "maxAttempts must be a positive integer",
+    );
+  });
 });

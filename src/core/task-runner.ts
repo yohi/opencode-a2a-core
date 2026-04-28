@@ -3,7 +3,7 @@ import type { A2APluginContext } from "./plugin-interface.js";
 import type { PluginRegistry } from "./registry.js";
 import type { TaskStore } from "./task-store.js";
 import type { Logger } from "./logger.js";
-import { NonRetriableError, serializeError } from "./errors.js";
+import { NonRetriableError, PluginNotFoundError, serializeError } from "./errors.js";
 import { computeBackoffMs } from "./helpers/exponential-backoff.js";
 
 export interface TaskRunnerOptions {
@@ -26,6 +26,10 @@ export class TaskRunner {
     message: Message,
     opts: { abortSignal: AbortSignal; contextId?: string },
   ): AsyncIterable<StreamResponse> {
+    if (this.options.maxAttempts <= 0) {
+      throw new Error("maxAttempts must be a positive integer");
+    }
+
     const task = await this.taskStore.create({
       ...(opts.contextId !== undefined ? { contextId: opts.contextId } : {}),
     });
@@ -33,7 +37,7 @@ export class TaskRunner {
 
     const plugin = this.registry.get(pluginId);
     if (!plugin) {
-      yield* this.emitFailed(task.id, new NonRetriableError(`plugin not found: ${pluginId}`));
+      yield* this.emitFailed(task.id, new PluginNotFoundError(pluginId));
       return;
     }
 
