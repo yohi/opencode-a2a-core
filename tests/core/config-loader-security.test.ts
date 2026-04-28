@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { loadConfig } from '../../src/core/config-loader.js';
 import { writeFile, unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 describe('loadConfig Security', () => {
   it('prevents prototype pollution', async () => {
-    const tempFile = './test-config-pollution.json';
+    const tempFile = join(tmpdir(), `a2a-config-pollution-${randomUUID()}.json`);
     const maliciousJson = JSON.stringify({
       plugins: {
         test: {
