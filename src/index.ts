@@ -1,2 +1,2 @@
-export * from './core/config-loader.js';
 export * from './core/index.js';
+export * from './plugins/gemini-cli-plugin.js';

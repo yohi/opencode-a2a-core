@@ -1,12 +1,15 @@
-import { z } from "zod";
-import type { A2APluginContext, A2APluginInterface } from "../core/plugin-interface.js";
-import type { Message, StreamResponse } from "../core/a2a-types.js";
-import { NonRetriableError } from "../core/errors.js";
-import { runJsonLinesSubprocess } from "../core/helpers/subprocess.js";
+import { z } from 'zod';
+import type {
+  A2APluginContext,
+  A2APluginInterface,
+} from '../core/plugin-interface.js';
+import type { Message, StreamResponse } from '../core/a2a-types.js';
+import { NonRetriableError } from '../core/errors.js';
+import { runJsonLinesSubprocess } from '../core/helpers/subprocess.js';
 
 export const GeminiConfigSchema = z.object({
-  cliPath: z.string().default("gemini"),
-  model: z.string().default("gemini-2.5-pro"),
+  cliPath: z.string().default('gemini'),
+  model: z.string().default('gemini-2.5-pro'),
   workingDir: z.string().optional(),
   apiKey: z.string().optional(),
 });
@@ -14,8 +17,8 @@ export const GeminiConfigSchema = z.object({
 export type GeminiConfig = z.infer<typeof GeminiConfigSchema>;
 
 export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
-  readonly id = "gemini-cli";
-  readonly version = "0.1.0";
+  readonly id = 'gemini-cli';
+  readonly version = '0.1.0';
   readonly configSchema = GeminiConfigSchema;
 
   private config: GeminiConfig | null = null;
@@ -28,9 +31,12 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
     this.config = null;
   }
 
-  async *execute(message: Message, ctx: A2APluginContext): AsyncIterable<StreamResponse> {
+  async *execute(
+    message: Message,
+    ctx: A2APluginContext
+  ): AsyncIterable<StreamResponse> {
     if (this.config === null) {
-      throw new NonRetriableError("GeminiCliPlugin is not initialized");
+      throw new NonRetriableError('GeminiCliPlugin is not initialized');
     }
 
     const prompt = messageToPrompt(message);
@@ -42,8 +48,10 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 
     const proc = runJsonLinesSubprocess({
       cmd: this.config.cliPath,
-      args: ["--json", "--model", this.config.model, "-"],
-      ...(this.config.workingDir !== undefined ? { cwd: this.config.workingDir } : {}),
+      args: ['--json', '--model', this.config.model, '-'],
+      ...(this.config.workingDir !== undefined
+        ? { cwd: this.config.workingDir }
+        : {}),
       env,
       abortSignal: ctx.abortSignal,
       stdin: prompt,
@@ -57,14 +65,22 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
     }
   }
 
-  metadata(): { skills: Array<{ id: string; name: string; description: string; tags: string[] }> } {
+  metadata(): {
+    skills: Array<{
+      id: string;
+      name: string;
+      description: string;
+      tags: string[];
+    }>;
+  } {
     return {
       skills: [
         {
-          id: "gemini-cli",
-          name: "Gemini CLI",
-          description: "Delegates execution to Gemini CLI and streams JSON-lines output",
-          tags: ["code", "chat", "search"],
+          id: 'gemini-cli',
+          name: 'Gemini CLI',
+          description:
+            'Delegates execution to Gemini CLI and streams JSON-lines output',
+          tags: ['code', 'chat', 'search'],
         },
       ],
     };
@@ -72,47 +88,51 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 }
 
 type GeminiEvent =
-  | { type: "text"; text: string }
-  | { type: "thinking"; text: string }
-  | { type: "error"; message: string; name?: string }
+  | { type: 'text'; text: string }
+  | { type: 'thinking'; text: string }
+  | { type: 'error'; message: string; name?: string }
   | { type: string; [key: string]: unknown };
 
 function messageToPrompt(message: Message): string {
   return message.parts
     .map((part) => {
-      if (part.kind === "text") {
+      if (part.kind === 'text') {
         return part.text;
       }
       return JSON.stringify(part);
     })
-    .join("\n");
+    .join('\n');
 }
 
-export function parseGeminiEvent(raw: unknown, taskId: string): StreamResponse | null {
-  if (typeof raw !== "object" || raw === null) {
+export function parseGeminiEvent(
+  raw: unknown,
+  taskId: string
+): StreamResponse | null {
+  if (typeof raw !== 'object' || raw === null) {
     return null;
   }
 
   const event = raw as GeminiEvent;
 
   switch (event.type) {
-    case "text":
-      if (typeof event.text !== "string") {
+    case 'text':
+      if (typeof event.text !== 'string') {
         return null;
       }
       return {
-        kind: "artifact-update",
+        kind: 'artifact-update',
         artifact: {
           artifactId: `gemini-out-${taskId}`,
-          parts: [{ kind: "text", text: event.text }],
+          parts: [{ kind: 'text', text: event.text }],
         },
       };
-    case "thinking":
+    case 'thinking':
       return null;
-    case "error":
-      if (typeof event.message !== "string") {
-        const details = JSON.stringify({ type: event.type, name: event.name }, (k, v) =>
-          v === undefined ? null : v,
+    case 'error':
+      if (typeof event.message !== 'string') {
+        const details = JSON.stringify(
+          { type: event.type, name: event.name },
+          (k, v) => (v === undefined ? null : v)
         ).slice(0, 100);
         throw new NonRetriableError(`gemini: unknown error - ${details}`);
       }
