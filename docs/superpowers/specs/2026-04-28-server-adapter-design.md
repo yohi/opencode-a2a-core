@@ -53,7 +53,7 @@ Client
   │                 ├─ message/send   ──▶ TaskRunner.run() 全消費 → Task 返却
   │                 ├─ message/stream ──▶ TaskRunner.run() → SSE ストリーム
   │                 ├─ tasks/get      ──▶ TaskStore.get()
-  │                 └─ tasks/cancel   ──▶ AbortController.abort()
+  │                 └─ tasks/cancel   ──▶ AbortController.abort() → 終端状態待機 → Task 返却
   │
   └─ GET /.well-known/agent.json ──▶ Plugin.metadata() 集約
 ```
@@ -172,9 +172,14 @@ POST /
 
 #### `tasks/cancel`
 
-1. `activeAbortControllers.get(taskId)?.abort()` 呼び出し
+1. `activeAbortControllers.get(taskId)` を検索
 2. 見つからなければ `TASK_NOT_FOUND` エラー
-3. `{ jsonrpc: "2.0", id, result: { taskId, status: "canceled" } }` を返却
+3. `abortController.abort()` を呼び出し
+4. `TaskStore` をポーリングし、タスクが終端状態（`TASK_STATE_CANCELED` / `TASK_STATE_COMPLETED` / `TASK_STATE_FAILED`）に遷移するまで待機
+   - ポーリング間隔: 50ms、最大待機: 5000ms（タイムアウト時は `INTERNAL_ERROR`）
+   - **根拠**: `abort()` は非同期のシグナル送信であり、実際の状態永続化は `TaskRunner` のイテレーションサイクル内で行われる。レスポンス前に永続化を確認することで、クライアントが受け取る `Task` オブジェクトの状態一貫性を保証する
+5. `TaskStore.get(taskId)` で最終 `Task` を取得
+6. `{ jsonrpc: "2.0", id, result: task }` を返却
 
 ### 4. Server Factory (`src/server/index.ts`)
 
@@ -236,8 +241,9 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | | プラグインエラー | FAILED 状態の Task を正常レスポンスで返却 |
 | **tasks/get** | 存在するタスク | Task 返却 |
 | | 存在しないID | -32001 Task not found |
-| **tasks/cancel** | アクティブタスク | 成功レスポンス |
+| **tasks/cancel** | アクティブタスク | CANCELED 状態の Task オブジェクト返却 |
 | | 不在タスク | -32001 Task not found |
+| | 終端状態待機タイムアウト | -32603 Internal error |
 | **message/stream** | 正常系 | Content-Type: text/event-stream、イベント形式検証 |
 | | SSE 切断検知 | AbortController.abort() 呼び出し検証 |
 | **AgentCard** | GET 正常系 | プラグインメタデータの JSON 返却 |
