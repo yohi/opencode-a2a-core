@@ -145,20 +145,23 @@ POST /
 
 1. `AbortController` 生成（この時点では `activeAbortControllers` に未登録）
 2. `taskId` 変数を `undefined` で初期化
-3. `try` ブロック開始
-4. `TaskRunner.run(pluginId, message, { abortSignal, contextId })` のイテレーションを開始
-5. 最初のチャンク（`{ kind: 'task', task }`）から `taskId` を取得し、
+3. `c.req.raw.signal` (クライアント切断) の `abort` イベントを監視
+   → 発火時に `AbortController.abort()` 呼び出し（`message/stream` と対称）
+   - **根拠**: クライアントが HTTP 接続をタイムアウト等で切断した場合、応答先が存在しないままタスクが完走するとリソース消費・DoS リスクとなるため、`message/stream` と同様に切断時は中断する
+4. `try` ブロック開始
+5. `TaskRunner.run(pluginId, message, { abortSignal, contextId })` のイテレーションを開始
+6. 最初のチャンク（`{ kind: 'task', task }`）から `taskId` を取得し、
    `activeAbortControllers.set(taskId, abortController)` で登録
-6. 残りのチャンクを全消費
-7. 完了後 `TaskStore.get(taskId)` で最終 `Task` を取得し、
+7. 残りのチャンクを全消費
+8. 完了後 `TaskStore.get(taskId)` で最終 `Task` を取得し、
    `{ jsonrpc: "2.0", id, result: task }` を返却
-8. `catch` ブロック:
+9. `catch` ブロック:
    - `taskId` が未取得（最初のチャンク yield 前に `TaskRunner` が throw）の場合: `INTERNAL_ERROR` (-32603) を返却。
      `TaskStore` 上に永続化された `Task` が存在しないため、`TaskStore.get(undefined)` を呼ばず即座にエラー応答とする
    - `taskId` 取得済みの場合: `TaskStore.get(taskId)` で `FAILED` 状態の `Task` を取得して正常レスポンスとして返却
      （`TaskRunner` は最初のチャンク yield 後の throw 前に必ず `FAILED` ステータスを yield・永続化する仕様のため）
-9. `finally` ブロック: `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行
-   （成功・失敗・キャンセルいずれの経路でもマップへの登録残留を防止）
+10. `finally` ブロック: `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行、`c.req.raw.signal` のイベントリスナーを解除
+    （成功・失敗・キャンセルいずれの経路でもマップへの登録残留・リスナーリークを防止）
 
 #### `message/stream`
 
@@ -172,7 +175,10 @@ POST /
 6. 残りのチャンクを逐次 `stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) })` で送信
 7. `TaskRunner` の throw は catch して無視
    - `taskId` 取得済み: `FAILED` チャンクは throw 前に yield・送信済みのためそのままストリームを正常終了
-   - `taskId` 未取得（最初のチャンク yield 前に throw）: SSE クライアントへエラーイベント（`event: error`）を1件送信した上でストリームを終了
+   - `taskId` 未取得（最初のチャンク yield 前に throw）: SSE クライアントへエラーイベントを1件送信した上でストリームを終了
+     - `event: error`
+     - `data`: JSON-RPC エラー形式の JSON 文字列 `{ "code": -32603, "message": <エラー詳細> }`
+       （`JSON_RPC_ERRORS.INTERNAL_ERROR` を使用、本文中の他のエラーレスポンスと整合）
 8. `finally` で `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行、イベントリスナー解除
 
 #### `tasks/get`
@@ -197,6 +203,13 @@ POST /
 7. `TaskStore.get(taskId)` で最終 `Task` を取得
 8. `{ jsonrpc: "2.0", id, result: task }` を返却
 
+**API セマンティクスに関する注意事項**:
+
+`tasks/cancel` のレスポンスとして返却される `Task` は必ずしも `CANCELED` 状態とは限らない。
+ステップ5で `abort()` を呼び出した時点でタスクが既に最終チャンクの永続化フェーズに入っている等のレースが発生した場合、`TaskRunner` は `CANCELED` ではなく `COMPLETED` または `FAILED` で終端する。
+クライアントは返却された `Task.status.state` を必ず確認し、`CANCELED` を前提とした処理を行わないこと。
+本仕様では「キャンセル要求の受理 + 終端状態への確実な到達」を保証するが、終端状態の種別はタイミング次第である。
+
 ### 4. Server Factory (`src/server/index.ts`)
 
 **公開API**:
@@ -208,6 +221,7 @@ interface CreateA2AServerOptions {
   logger?: Logger;                          // default: ConsoleLogger
   auth?: { token: string };                 // デフォルト: 認証必須（未設定かつ allowUnauthenticated 未設定は起動エラー）
   allowUnauthenticated?: boolean;           // 開発用途で auth スキップを明示する opt-out フラグ (default: false)
+  baseUrl?: string;                         // AgentCard.url に使用するサーバー公開 URL（リバースプロキシ環境での明示用）
   taskRunnerOptions?: Partial<TaskRunnerOptions>;
 }
 
@@ -231,12 +245,24 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 ```json
 {
   "name": "<pluginId>",
-  "url": "<origin>",
+  "url": "<resolved-base-url>",
   "version": "<plugin.version>",
   "capabilities": { "streaming": true },
   "skills": [...]
 }
 ```
+
+**`url` フィールドの決定ロジック**:
+
+リバースプロキシ経由で公開される一般的なデプロイ構成において、`request.url` のオリジンはプロキシ内部のアドレスとなり、A2A クライアントが正しい接続先を取得できなくなる問題を回避するため、以下の優先順位で解決する:
+
+1. `CreateA2AServerOptions.baseUrl` が設定されている場合: その値をそのまま使用（最優先・明示設定）
+2. `X-Forwarded-Proto` および `X-Forwarded-Host` ヘッダーが両方存在する場合:
+   `${X-Forwarded-Proto}://${X-Forwarded-Host}` をオリジンとして使用
+   - `X-Forwarded-Host` がカンマ区切りの複数ホストを含む場合は最左の値を採用（RFC 7239 / X-Forwarded-* デファクト準拠）
+3. 上記いずれも該当しない場合: `new URL(c.req.url).origin` を使用（フォールバック）
+
+本番環境（リバースプロキシ配下）では `baseUrl` の明示設定を強く推奨する。`X-Forwarded-*` ヘッダーは信頼できるプロキシ配下でのみ意味を持つため、依存する場合はプロキシでの上書き設定が前提となる。
 
 ## Testing Strategy
 
@@ -258,16 +284,22 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | **message/send** | 正常系 | Task (COMPLETED) 返却 |
 | | プラグインエラー（taskId 取得後 throw） | FAILED 状態の Task を正常レスポンスで返却 |
 | | 最初のチャンク前 throw（taskId 未取得） | -32603 Internal error |
+| | クライアント切断（`c.req.raw.signal` abort） | `AbortController.abort()` 呼び出し検証 |
 | | catch / finally 経路 | `activeAbortControllers` から taskId が削除される（リーク防止） |
 | **tasks/get** | 存在するタスク | Task 返却 |
 | | 存在しないID | -32001 Task not found |
 | **tasks/cancel** | アクティブタスク | CANCELED 状態の Task オブジェクト返却 |
+| | キャンセル直前に自然完了したタスク（race condition） | COMPLETED 状態の Task オブジェクトを返却（エラーではなく `result` で返す） |
 | | 不在タスク（TaskStore にもなし） | -32001 Task not found |
 | | 既に終端状態のタスク（TaskStore に存在） | -32002 Task canceled |
 | | 終端状態待機タイムアウト | -32603 Internal error |
 | **message/stream** | 正常系 | Content-Type: text/event-stream、イベント形式検証 |
-| | SSE 切断検知 | AbortController.abort() 呼び出し検証 |
+| | 最初のチャンク前 throw（taskId 未取得） | `event: error` + `data: { code: -32603, message: ... }` を1件送信して終了 |
+| | SSE 切断検知 | `AbortController.abort()` 呼び出し検証 |
 | **AgentCard** | GET 正常系 | プラグインメタデータの JSON 返却 |
+| | `baseUrl` 明示設定 | `url` フィールドが設定値と一致 |
+| | `X-Forwarded-Proto` + `X-Forwarded-Host` 設定（baseUrl 未指定） | `url` フィールドがヘッダー由来のオリジンと一致 |
+| | 何も設定なし | `url` フィールドが `request.url` のオリジンと一致（フォールバック） |
 
 ### テストヘルパー
 
