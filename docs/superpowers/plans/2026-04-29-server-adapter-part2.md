@@ -442,7 +442,11 @@ async function handleMessageSend(
     const task = await deps.taskStore.get(taskId);
     return c.json(rpcResult(id, task));
   } catch {
-    return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
+    if (!taskId) {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
+    }
+    const task = await deps.taskStore.get(taskId);
+    return c.json(rpcResult(id, task));
   } finally {
     if (taskId) deps.activeAbortControllers.delete(taskId);
     c.req.raw.signal.removeEventListener('abort', onAbort);
@@ -530,7 +534,7 @@ async function handleTasksCancel(
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
     return c.json(
-      rpcError(id, JSON_RPC_ERRORS.INVALID_REQUEST, 'Task is already in terminal state and cannot be canceled')
+      rpcError(id, JSON_RPC_ERRORS.TASK_CANCELED, 'Task is already in terminal state and cannot be canceled')
     );
   }
 
