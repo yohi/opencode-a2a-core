@@ -9,6 +9,7 @@ import { computeBackoffMs } from "./helpers/exponential-backoff.js";
 export interface TaskRunnerOptions {
   maxAttempts: number;
   initialBackoffMs: number;
+  maxBackoffMs: number;
   backoffMultiplier: number;
   jitterRatio: number;
   logger: Logger;
@@ -98,6 +99,7 @@ export class TaskRunner {
             await this.sleep(
               computeBackoffMs(attempt, {
                 initialMs: this.options.initialBackoffMs,
+                maxMs: this.options.maxBackoffMs,
                 multiplier: this.options.backoffMultiplier,
                 jitterRatio: this.options.jitterRatio,
               }),
@@ -143,7 +145,10 @@ export class TaskRunner {
     const status: TaskStatus = {
       state: "TASK_STATE_FAILED",
       timestamp: new Date().toISOString(),
-      message: serializeError(err).message,
+      message: {
+        role: "ROLE_AGENT",
+        parts: [{ kind: "text", text: serializeError(err).message }],
+      },
     };
     await this.taskStore.updateStatus(taskId, status);
     yield { kind: "status-update", status };

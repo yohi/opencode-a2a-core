@@ -1,3 +1,7 @@
 ---
 exclude_paths:
   - "tests/**"
+
+ignore_issues:
+  - file: "src/core/task-runner.ts"
+    patternId: "Non-serializable expression must be wrapped with $(...)"

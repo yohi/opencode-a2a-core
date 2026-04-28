@@ -7,7 +7,6 @@ export interface TaskStore {
   update(id: string, patch: Partial<Task>): Promise<Task>;
   appendArtifact(id: string, artifact: Artifact): Promise<void>;
   appendStreamChunk(id: string, chunk: StreamResponse): Promise<void>;
-  appendHistoryEntry(id: string, status: TaskStatus): Promise<void>;
   updateStatus(id: string, status: TaskStatus): Promise<void>;
   delete(id: string): Promise<void>;
 }
@@ -68,7 +67,7 @@ export class InMemoryTaskStore implements TaskStore {
     if (chunk.kind === "artifact-update") {
       await this.appendArtifact(id, chunk.artifact);
     } else if (chunk.kind === "status-update") {
-      await this.appendHistoryEntry(id, chunk.status);
+      await this.updateStatus(id, chunk.status);
     } else if (chunk.kind === "message") {
       await this.appendMessage(id, chunk.message);
     } else if (chunk.kind === "task") {
@@ -77,10 +76,6 @@ export class InMemoryTaskStore implements TaskStore {
       const unknownChunk = chunk as unknown as { kind: string };
       throw new Error(`Unhandled stream chunk kind "${unknownChunk.kind}" for task ${id}`);
     }
-  }
-
-  async appendHistoryEntry(id: string, status: TaskStatus): Promise<void> {
-    await this.updateStatus(id, status);
   }
 
   async updateStatus(id: string, status: TaskStatus): Promise<void> {

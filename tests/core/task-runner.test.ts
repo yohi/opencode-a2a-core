@@ -21,6 +21,7 @@ describe("TaskRunner — happy path", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 10,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -56,6 +57,7 @@ describe("TaskRunner — happy path", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 1,
       initialBackoffMs: 10,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -91,6 +93,7 @@ describe("TaskRunner — happy path", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 1,
       initialBackoffMs: 10,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -128,6 +131,7 @@ describe("TaskRunner — happy path", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 1,
       initialBackoffMs: 10,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -163,6 +167,7 @@ describe("TaskRunner — retries and errors", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -189,6 +194,7 @@ describe("TaskRunner — retries and errors", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -210,6 +216,7 @@ describe("TaskRunner — retries and errors", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1000, // Long sleep
+      maxBackoffMs: 5000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -251,6 +258,7 @@ describe("TaskRunner — all attempts fail", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -267,10 +275,10 @@ describe("TaskRunner — all attempts fail", () => {
     await expect(runPromise).rejects.toThrow(/boom-3/);
     expect(attempts).toBe(3);
 
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    const last = out.at(-1) as { kind: "status-update"; status: TaskStatus };
     expect(last.kind).toBe("status-update");
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect(last.status.message).toMatch(/boom-3/);
+    expect((last.status.message?.parts[0] as any).text).toMatch(/boom-3/);
   });
 });
 
@@ -280,6 +288,7 @@ describe("TaskRunner — cancellation before start", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
+      // eslint-disable-next-line require-yield
       mkPlugin("never", async function* () {
         calls++;
       }),
@@ -287,6 +296,7 @@ describe("TaskRunner — cancellation before start", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -332,6 +342,7 @@ describe("TaskRunner — cancellation mid-stream", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -372,6 +383,7 @@ describe("TaskRunner — post-yield error does not retry", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -392,7 +404,7 @@ describe("TaskRunner — post-yield error does not retry", () => {
       throw new Error("Expected last chunk to be status-update");
     }
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect(last.status.message).toMatch(/after-yield-boom/);
+    expect((last.status.message?.parts[0] as any).text).toMatch(/after-yield-boom/);
 
     // Verify persistence in store
     const firstChunk = out[0];
@@ -418,6 +430,7 @@ describe("TaskRunner — non-retriable errors", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -431,9 +444,9 @@ describe("TaskRunner — non-retriable errors", () => {
     })();
     await expect(runPromise).rejects.toThrow("bad-config");
     expect(attempts).toBe(1);
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    const last = out.at(-1) as { kind: "status-update"; status: TaskStatus };
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect(last.status.message).toMatch(/bad-config/);
+    expect((last.status.message?.parts[0] as any).text).toMatch(/bad-config/);
   });
 
   it("missing plugin id yields { kind: task } then FAILED (not an uncaught throw)", async () => {
@@ -442,6 +455,7 @@ describe("TaskRunner — non-retriable errors", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
@@ -450,9 +464,9 @@ describe("TaskRunner — non-retriable errors", () => {
     const out = await drain(runner.run("nope", mkMessage(), { abortSignal: ctl.signal }));
     const kinds = out.map((c) => c.kind);
     expect(kinds[0]).toBe("task");
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
+    const last = out.at(-1) as { kind: "status-update"; status: TaskStatus };
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect(last.status.message).toMatch(/plugin not found/i);
+    expect((last.status.message?.parts[0] as any).text).toMatch(/plugin not found/i);
   });
 
   it("throws error immediately if maxAttempts is 0 or less", async () => {
@@ -461,6 +475,7 @@ describe("TaskRunner — non-retriable errors", () => {
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 0,
       initialBackoffMs: 1,
+      maxBackoffMs: 1000,
       backoffMultiplier: 2,
       jitterRatio: 0,
       logger: silentLogger(),
