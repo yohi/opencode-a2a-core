@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Minimal Gemini-like JSON-lines emitter for integration tests.
-import { stdin, stdout } from 'node:process';
+import process, { stdin, stdout } from 'node:process';
 
 let buffer = '';
 

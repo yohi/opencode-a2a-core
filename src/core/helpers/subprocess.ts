@@ -42,10 +42,14 @@ export async function* runJsonLinesSubprocess(
     });
   });
 
+  let sigkillTimer: NodeJS.Timeout | undefined;
   const abortHandler = () => {
     if (!completed) {
       child.kill('SIGTERM');
-      setTimeout(() => {
+      if (sigkillTimer) {
+        clearTimeout(sigkillTimer);
+      }
+      sigkillTimer = setTimeout(() => {
         if (!completed) {
           child.kill('SIGKILL');
         }
@@ -53,6 +57,9 @@ export async function* runJsonLinesSubprocess(
     }
   };
 
+  if (opts.abortSignal.aborted) {
+    abortHandler();
+  }
   opts.abortSignal.addEventListener('abort', abortHandler);
 
   let timeoutTimer: NodeJS.Timeout | undefined;
@@ -68,10 +75,19 @@ export async function* runJsonLinesSubprocess(
     opts.abortSignal.removeEventListener('abort', abortHandler);
     if (timeoutTimer) {
       clearTimeout(timeoutTimer);
+      timeoutTimer = undefined;
+    }
+    if (sigkillTimer) {
+      clearTimeout(sigkillTimer);
+      sigkillTimer = undefined;
     }
   };
 
+  child.on('close', cleanup);
+  child.on('error', cleanup);
+
   if (opts.stdin !== undefined) {
+    child.stdin?.on('error', () => {}); // Handle EPIPE
     child.stdin?.write(opts.stdin);
     child.stdin?.end();
   } else {

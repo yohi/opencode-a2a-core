@@ -41,11 +41,23 @@ describe('GeminiCliPlugin - lifecycle and execution guards', () => {
     taskId: 'test-task',
     abortSignal: new AbortController().signal,
     logger: {
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-    } as any,
+      debug: (msg: string, ctx?: Record<string, unknown>) => {
+        void msg;
+        void ctx;
+      },
+      info: (msg: string, ctx?: Record<string, unknown>) => {
+        void msg;
+        void ctx;
+      },
+      warn: (msg: string, ctx?: Record<string, unknown>) => {
+        void msg;
+        void ctx;
+      },
+      error: (msg: string, ctx?: Record<string, unknown>) => {
+        void msg;
+        void ctx;
+      },
+    },
   });
 
   const mockMessage: Message = {
@@ -75,13 +87,13 @@ describe('GeminiCliPlugin - lifecycle and execution guards', () => {
 });
 
 describe('parseGeminiEvent', () => {
-  it('generates dynamic artifactId using taskId', () => {
+  it('generates unique artifactId using taskId and index', () => {
     const event = { type: 'text', text: 'hello world' };
-    const res = parseGeminiEvent(event, 'task-123');
+    const res = parseGeminiEvent(event, 'task-123', 5);
     expect(res).toEqual({
       kind: 'artifact-update',
       artifact: {
-        artifactId: 'gemini-out-task-123',
+        artifactId: 'gemini-out-task-123-5',
         parts: [{ kind: 'text', text: 'hello world' }],
       },
     });
@@ -89,14 +101,14 @@ describe('parseGeminiEvent', () => {
 
   it('throws NonRetriableError for error events', () => {
     const event = { type: 'error', message: 'rate limit exceeded' };
-    expect(() => parseGeminiEvent(event, 't')).toThrow(
+    expect(() => parseGeminiEvent(event, 't', 0)).toThrow(
       'gemini: rate limit exceeded'
     );
   });
 
   it('includes event details when message is missing or invalid', () => {
     const event = { type: 'error', name: 'INTERNAL_ERROR', foo: 'bar' };
-    expect(() => parseGeminiEvent(event, 't')).toThrow(
+    expect(() => parseGeminiEvent(event, 't', 0)).toThrow(
       /gemini: unknown error - .*INTERNAL_ERROR/
     );
   });

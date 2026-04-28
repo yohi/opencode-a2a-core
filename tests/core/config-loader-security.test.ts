@@ -11,20 +11,23 @@ describe('loadConfig Security', () => {
       tmpdir(),
       `a2a-config-pollution-${randomUUID()}.json`
     );
-    const maliciousJson = JSON.stringify({
-      plugins: {
-        test: {
-          __proto__: { polluted: 'yes' },
-          constructor: { prototype: { polluted: 'yes' } },
-        },
-      },
-    });
+    const maliciousJson = `{
+      "plugins": {
+        "test": {
+          "__proto__": { "polluted": "yes" },
+          "constructor": { "prototype": { "polluted": "yes" } }
+        }
+      }
+    }`;
 
     try {
       await writeFile(tempFile, maliciousJson);
       const cfg = await loadConfig(tempFile);
 
-      const pluginCfg = cfg.plugins.test as any;
+      const pluginCfg: Record<string, unknown> = cfg.plugins.test as Record<
+        string,
+        unknown
+      >;
 
       // 1. プロトタイプが汚染されていないことを確認
       expect(({} as any).polluted).toBeUndefined();

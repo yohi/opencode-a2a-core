@@ -58,7 +58,9 @@ describe('loadConfig', () => {
         })
       );
       const cfg = await loadConfig(tempFile);
-      expect((cfg.plugins.test as any).key).toBe('lower-secret');
+      expect((cfg.plugins.test as Record<string, unknown>).key).toBe(
+        'lower-secret'
+      );
     } finally {
       delete process.env.my_api_key;
       await unlink(tempFile).catch(() => {});
@@ -76,7 +78,9 @@ describe('loadConfig', () => {
         })
       );
       const cfg = await loadConfig(tempFile);
-      expect((cfg.plugins.test as any).url).toBe('https://example.com/v1');
+      expect((cfg.plugins.test as Record<string, unknown>).url).toBe(
+        'https://example.com/v1'
+      );
     } finally {
       delete process.env.API_HOST;
       await unlink(tempFile).catch(() => {});

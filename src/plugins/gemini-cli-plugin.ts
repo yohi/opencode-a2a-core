@@ -57,8 +57,9 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
       stdin: prompt,
     });
 
+    let index = 0;
     for await (const line of proc) {
-      const event = parseGeminiEvent(line, ctx.taskId);
+      const event = parseGeminiEvent(line, ctx.taskId, index++);
       if (event !== null) {
         yield event;
       }
@@ -106,7 +107,8 @@ function messageToPrompt(message: Message): string {
 
 export function parseGeminiEvent(
   raw: unknown,
-  taskId: string
+  taskId: string,
+  index: number
 ): StreamResponse | null {
   if (typeof raw !== 'object' || raw === null) {
     return null;
@@ -122,7 +124,7 @@ export function parseGeminiEvent(
       return {
         kind: 'artifact-update',
         artifact: {
-          artifactId: `gemini-out-${taskId}`,
+          artifactId: `gemini-out-${taskId}-${index}`,
           parts: [{ kind: 'text', text: event.text }],
         },
       };
