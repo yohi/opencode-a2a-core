@@ -108,10 +108,13 @@ export class TaskRunner {
               undefined,
               { signal: opts.abortSignal },
             );
-          } catch (sleepErr: any) {
+          } catch (sleepErr: unknown) {
             lastError = sleepErr;
             // Break loop on sleep failure (e.g. AbortSignal)
-            if (sleepErr?.name === "AbortError" || opts.abortSignal.aborted) {
+            if (
+              (sleepErr instanceof Error && sleepErr.name === "AbortError") ||
+              opts.abortSignal.aborted
+            ) {
               break;
             }
           }
