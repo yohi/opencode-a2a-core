@@ -142,22 +142,27 @@ POST /
 
 #### `message/send`
 
-1. `AbortController` 生成 → `activeAbortControllers` に登録
-2. `TaskRunner.run(pluginId, message, { abortSignal, contextId })` を全消費
-3. 完了後 `TaskStore.get(taskId)` で最終 `Task` 取得
-4. `activeAbortControllers` から削除
-5. `{ jsonrpc: "2.0", id, result: task }` を返却
-6. `TaskRunner` が throw した場合は catch し、`TaskStore.get(taskId)` で `FAILED` 状態の `Task` を取得して正常レスポンスとして返却（`TaskRunner` は throw 前に必ず `FAILED` ステータスを yield・永続化する仕様のため）
+1. `AbortController` 生成（この時点では `activeAbortControllers` に未登録）
+2. `TaskRunner.run(pluginId, message, { abortSignal, contextId })` のイテレーションを開始
+3. 最初のチャンク（`{ kind: 'task', task }`）から `taskId` を取得し、
+   `activeAbortControllers.set(taskId, abortController)` で登録
+4. 残りのチャンクを全消費
+5. 完了後 `TaskStore.get(taskId)` で最終 `Task` 取得
+6. `activeAbortControllers` から削除
+7. `{ jsonrpc: "2.0", id, result: task }` を返却
+8. `TaskRunner` が throw した場合は catch し、`TaskStore.get(taskId)` で `FAILED` 状態の `Task` を取得して正常レスポンスとして返却（`TaskRunner` は throw 前に必ず `FAILED` ステータスを yield・永続化する仕様のため）
 
 #### `message/stream`
 
-1. `AbortController` 生成 → `activeAbortControllers` に登録
+1. `AbortController` 生成（この時点では `activeAbortControllers` に未登録）
 2. `c.req.raw.signal` (クライアント切断) の `abort` イベントを監視
    → 発火時に `AbortController.abort()` 呼び出し
 3. Hono の `streamSSE` ヘルパーで SSE ストリーム開始
-4. `TaskRunner.run()` から逐次 `stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) })`
-5. `TaskRunner` の throw は catch して無視（FAILED ステータスは throw 前に yield 済み）
-6. `finally` で `activeAbortControllers` から削除、イベントリスナー解除
+4. `TaskRunner.run()` のイテレーションを開始し、最初のチャンク（`{ kind: 'task', task }`）から
+   `taskId` を取得し、`activeAbortControllers.set(taskId, abortController)` で登録
+5. 残りのチャンクを逐次 `stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) })` で送信
+6. `TaskRunner` の throw は catch して無視（FAILED ステータスは throw 前に yield 済み）
+7. `finally` で `activeAbortControllers` から削除、イベントリスナー解除
 
 #### `tasks/get`
 
