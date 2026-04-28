@@ -160,14 +160,19 @@ export class TaskRunner {
       if (signal?.aborted) {
         return reject(signal.reason);
       }
-      const timeout = setTimeout(() => {
-        signal?.removeEventListener("abort", onAbort);
-        resolve();
-      }, ms);
+
+      // eslint-disable-next-line qwik/valid-lexical-scope
+      // biome-ignore lint/nursery/useQwikValidLexicalScope: False positive in non-Qwik project
       const onAbort = () => {
         clearTimeout(timeout);
         reject(signal?.reason);
       };
+
+      const timeout = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+
       signal?.addEventListener("abort", onAbort, { once: true });
     });
   }

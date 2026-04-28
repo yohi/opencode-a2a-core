@@ -14,6 +14,6 @@ ignore_issues:
   - file: "src/core/task-runner.ts"
     patternId: "useQwikValidLexicalScope"
   - file: "src/core/task-runner.ts"
-    patternId: "Biome.useQwikValidLexicalScope"
+    patternId: "Biome_useQwikValidLexicalScope"
   - file: "src/core/task-runner.ts"
-    patternId: "ESLint.qwik/valid-lexical-scope"
+    patternId: "Biome_lint_nursery_useQwikValidLexicalScope"
