@@ -77,14 +77,14 @@ describe("InMemoryTaskStore", () => {
     }
   });
 
-  it("appendHistoryEntry protects against input mutation", async () => {
+  it("updateStatus protects against input mutation", async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     const status: TaskStatus = {
       state: "TASK_STATE_WORKING",
       message: { role: "ROLE_USER", parts: [{ kind: "text", text: "hello" }] },
     };
-    await store.appendHistoryEntry(t.id, status);
+    await store.updateStatus(t.id, status);
 
     // Mutate input object deep
     const originalPart = status.message?.parts[0];
@@ -113,16 +113,13 @@ describe("InMemoryTaskStore", () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     
-    // Use Extract for precise type safety instead of unknown casts
-    const chunk: Extract<StreamResponse, { kind: "message" }> = { 
-      kind: "message", 
-      message: { 
-        role: "ROLE_USER", 
-        parts: [{ kind: "text", text: "hi" }] 
-      } 
-    };
+    // Using a non-existent kind to trigger error
+    const chunk = { 
+      kind: "unknown-kind", 
+      data: {}
+    } as unknown as StreamResponse;
     
-    await expect(store.appendStreamChunk(t.id, chunk)).rejects.toThrow(/Unhandled stream chunk kind "message"/);
+    await expect(store.appendStreamChunk(t.id, chunk)).rejects.toThrow(/Unhandled stream chunk kind "unknown-kind"/);
   });
 
   it("get returns a defensive copy", async () => {
@@ -136,20 +133,21 @@ describe("InMemoryTaskStore", () => {
     expect(got2?.id).toBe(t.id);
   });
 
-  it("appendHistoryEntry updates current status and accumulates history", async () => {
+  it("updateStatus updates current status and accumulates history", async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
-    await store.appendHistoryEntry(t.id, { state: "TASK_STATE_WORKING" });
+    await store.updateStatus(t.id, { state: "TASK_STATE_WORKING" });
     const mid = await store.get(t.id);
     expect(mid?.status.state).toBe("TASK_STATE_WORKING");
     expect(mid?.statusHistory).toHaveLength(1);
 
-    await store.appendHistoryEntry(t.id, {
-      state: "TASK_STATE_COMPLETED",
-      message: { role: "ROLE_AGENT", parts: [{ kind: "text", text: "done" }] },
+    await store.updateStatus(t.id, {
+      state: "TASK_STATE_FAILED",
+      message: { role: "ROLE_AGENT", parts: [{ kind: "text", text: "err" }] },
     });
+
     const final = await store.get(t.id);
-    expect(final?.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(final?.status.state).toBe("TASK_STATE_FAILED");
     expect(final?.statusHistory).toHaveLength(2);
     expect(final?.history).toHaveLength(1);
     expect(final?.history?.[0].parts[0].kind).toBe("text");
