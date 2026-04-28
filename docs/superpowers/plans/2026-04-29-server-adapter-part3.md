@@ -286,6 +286,8 @@ function resolveBaseUrl(
 ): string {
   if (baseUrl) return baseUrl;
 
+  // WARNING: X-Forwarded-* headers are trusted without validation.
+  // Set baseUrl explicitly in production when not behind a trusted reverse proxy.
   const proto = c.req.header('x-forwarded-proto');
   const host = c.req.header('x-forwarded-host');
   if (proto && host) {
@@ -400,10 +402,8 @@ describe('message/send error handling', () => {
       }),
     });
     const body = await res.json();
-    // taskId is obtained from first chunk (task), so if TaskRunner creates task
-    // and throws after yielding it, we get the stored task back.
-    // If error happens before any chunk, we get INTERNAL_ERROR.
-    expect(body).toBeDefined();
+    expect(body.error).toBeDefined();
+    expect(body.error.code).toBe(-32603); // INTERNAL_ERROR
   });
 
   it('cleans up activeAbortControllers after completion', async () => {

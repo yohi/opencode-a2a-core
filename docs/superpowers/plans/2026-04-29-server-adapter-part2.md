@@ -386,14 +386,7 @@ export function createRpcHandler(deps: ServerDependencies): Handler {
     }
     const { method, params, id } = parsed.data;
 
-    // 3. Reject notifications (id is required for all methods)
-    if (id === undefined) {
-      return c.json(
-        rpcError(null, JSON_RPC_ERRORS.INVALID_REQUEST, 'Notifications are not supported; id is required')
-      );
-    }
-
-    // 4. Method dispatch
+    // 3. Method dispatch (id is guaranteed present by schema validation)
     switch (method) {
       case 'message/send':
         return handleMessageSend(c, deps, id, params);
@@ -442,7 +435,11 @@ async function handleMessageSend(
       }
     }
 
-    const task = await deps.taskStore.get(taskId!);
+    if (!taskId) {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'No task was created'));
+    }
+
+    const task = await deps.taskStore.get(taskId);
     return c.json(rpcResult(id, task));
   } catch {
     if (!taskId) {
@@ -521,7 +518,7 @@ async function handleTasksGet(
 }
 
 async function handleTasksCancel(
-  c: { json: (data: unknown, status?: number) => Response },
+  c: { req: { raw: Request }; json: (data: unknown, status?: number) => Response },
   deps: ServerDependencies,
   id: string | number,
   params: unknown
@@ -539,17 +536,21 @@ async function handleTasksCancel(
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
     return c.json(
-      rpcError(id, JSON_RPC_ERRORS.TASK_CANCELED, 'Task is already in terminal state and cannot be canceled')
+      rpcError(id, JSON_RPC_ERRORS.INVALID_REQUEST, 'Task is already in terminal state and cannot be canceled')
     );
   }
 
   ac.abort();
 
   // Poll for terminal state
+  // TODO: Consider subscription-based approach for high-concurrency scenarios
   const maxWait = 5000;
   const interval = 50;
   const start = Date.now();
   while (Date.now() - start < maxWait) {
+    if (c.req.raw.signal.aborted) {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Client disconnected'));
+    }
     const current = await deps.taskStore.get(parsed.data.taskId);
     if (current && TERMINAL_STATES.has(current.status.state)) {
       return c.json(rpcResult(id, current));

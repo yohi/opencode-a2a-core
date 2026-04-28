@@ -95,12 +95,12 @@ describe('JsonRpcRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts notification (no id)', () => {
+  it('rejects notification (no id)', () => {
     const result = JsonRpcRequestSchema.safeParse({
       jsonrpc: '2.0',
       method: 'message/send',
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it('rejects wrong jsonrpc version', () => {
@@ -189,7 +189,7 @@ import { MessageSchema } from '../../core/a2a-types.js';
 
 export const JsonRpcRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
-  id: z.union([z.string(), z.number()]).optional(),
+  id: z.union([z.string(), z.number()]),
   method: z.string(),
   params: z.unknown().optional(),
 });
