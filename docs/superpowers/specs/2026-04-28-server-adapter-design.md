@@ -72,7 +72,7 @@ interface ServerDependencies {
 ```
 
 - `activeAbortControllers`: `message/send` / `message/stream` でタスク起動時に登録、
-  `tasks/cancel` で `abort()` 呼び出し、タスク完了時に削除
+  `tasks/cancel` で `abort()` 呼び出し、`finally` ブロックで成功・失敗・キャンセルいずれの場合も確実に削除
 - `taskStore`: すべてのエンドポイント間で共有するシングルトン
 
 ## Component Details
@@ -94,7 +94,8 @@ function bearerAuth(expectedToken: string): MiddlewareHandler;
 - 長さ不一致時: `Buffer.alloc(expectedBuf.length)` でゼロバッファを生成し、
   `timingSafeEqual` で比較後、`&& isLengthMatch` で論理AND
   → 長さ情報のタイミング漏洩を防止
-- `auth` オプション省略時はミドルウェア自体を適用しない（開発用途）
+- `auth` 未設定かつ `allowUnauthenticated: true` 未設定の場合、`createA2AServer()` は起動時バリデーションで例外をスローする（フェイルセーフ・デフォルト）
+- `auth` 未設定かつ `allowUnauthenticated: true` を明示設定した場合のみ、ミドルウェア自体を適用しない（開発用途、起動時に警告ログを出力）
 - レスポンス: プレーン JSON `{ error: "..." }` + HTTP 401
 
 ### 2. JSON-RPC Schema (`src/server/rpc/schema.ts`)
@@ -121,7 +122,7 @@ function bearerAuth(expectedToken: string): MiddlewareHandler;
 | `INVALID_PARAMS` | -32602 | params 検証失敗 |
 | `INTERNAL_ERROR` | -32603 | 内部エラー |
 | `TASK_NOT_FOUND` | -32001 | タスク不在 (A2A 拡張) |
-| `TASK_CANCELED` | -32002 | キャンセル済み (A2A 拡張) |
+| `TASK_CANCELED` | -32002 | `tasks/cancel` 対象が既に終端状態 (A2A 拡張) |
 
 ### 3. RPC Handler (`src/server/rpc/handler.ts`)
 
@@ -143,26 +144,36 @@ POST /
 #### `message/send`
 
 1. `AbortController` 生成（この時点では `activeAbortControllers` に未登録）
-2. `TaskRunner.run(pluginId, message, { abortSignal, contextId })` のイテレーションを開始
-3. 最初のチャンク（`{ kind: 'task', task }`）から `taskId` を取得し、
+2. `taskId` 変数を `undefined` で初期化
+3. `try` ブロック開始
+4. `TaskRunner.run(pluginId, message, { abortSignal, contextId })` のイテレーションを開始
+5. 最初のチャンク（`{ kind: 'task', task }`）から `taskId` を取得し、
    `activeAbortControllers.set(taskId, abortController)` で登録
-4. 残りのチャンクを全消費
-5. 完了後 `TaskStore.get(taskId)` で最終 `Task` 取得
-6. `activeAbortControllers` から削除
-7. `{ jsonrpc: "2.0", id, result: task }` を返却
-8. `TaskRunner` が throw した場合は catch し、`TaskStore.get(taskId)` で `FAILED` 状態の `Task` を取得して正常レスポンスとして返却（`TaskRunner` は throw 前に必ず `FAILED` ステータスを yield・永続化する仕様のため）
+6. 残りのチャンクを全消費
+7. 完了後 `TaskStore.get(taskId)` で最終 `Task` を取得し、
+   `{ jsonrpc: "2.0", id, result: task }` を返却
+8. `catch` ブロック:
+   - `taskId` が未取得（最初のチャンク yield 前に `TaskRunner` が throw）の場合: `INTERNAL_ERROR` (-32603) を返却。
+     `TaskStore` 上に永続化された `Task` が存在しないため、`TaskStore.get(undefined)` を呼ばず即座にエラー応答とする
+   - `taskId` 取得済みの場合: `TaskStore.get(taskId)` で `FAILED` 状態の `Task` を取得して正常レスポンスとして返却
+     （`TaskRunner` は最初のチャンク yield 後の throw 前に必ず `FAILED` ステータスを yield・永続化する仕様のため）
+9. `finally` ブロック: `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行
+   （成功・失敗・キャンセルいずれの経路でもマップへの登録残留を防止）
 
 #### `message/stream`
 
 1. `AbortController` 生成（この時点では `activeAbortControllers` に未登録）
-2. `c.req.raw.signal` (クライアント切断) の `abort` イベントを監視
+2. `taskId` 変数を `undefined` で初期化
+3. `c.req.raw.signal` (クライアント切断) の `abort` イベントを監視
    → 発火時に `AbortController.abort()` 呼び出し
-3. Hono の `streamSSE` ヘルパーで SSE ストリーム開始
-4. `TaskRunner.run()` のイテレーションを開始し、最初のチャンク（`{ kind: 'task', task }`）から
+4. Hono の `streamSSE` ヘルパーで SSE ストリーム開始
+5. `TaskRunner.run()` のイテレーションを開始し、最初のチャンク（`{ kind: 'task', task }`）から
    `taskId` を取得し、`activeAbortControllers.set(taskId, abortController)` で登録
-5. 残りのチャンクを逐次 `stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) })` で送信
-6. `TaskRunner` の throw は catch して無視（FAILED ステータスは throw 前に yield 済み）
-7. `finally` で `activeAbortControllers` から削除、イベントリスナー解除
+6. 残りのチャンクを逐次 `stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) })` で送信
+7. `TaskRunner` の throw は catch して無視
+   - `taskId` 取得済み: `FAILED` チャンクは throw 前に yield・送信済みのためそのままストリームを正常終了
+   - `taskId` 未取得（最初のチャンク yield 前に throw）: SSE クライアントへエラーイベント（`event: error`）を1件送信した上でストリームを終了
+8. `finally` で `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行、イベントリスナー解除
 
 #### `tasks/get`
 
@@ -172,14 +183,19 @@ POST /
 
 #### `tasks/cancel`
 
-1. `activeAbortControllers.get(taskId)` を検索
-2. 見つからなければ `TASK_NOT_FOUND` エラー
-3. `abortController.abort()` を呼び出し
-4. `TaskStore` をポーリングし、タスクが終端状態（`TASK_STATE_CANCELED` / `TASK_STATE_COMPLETED` / `TASK_STATE_FAILED`）に遷移するまで待機
+1. `TaskStore.get(taskId)` でタスクの存在を確認
+2. 見つからなければ `TASK_NOT_FOUND` (-32001) エラーを返却
+3. `activeAbortControllers.get(taskId)` を検索
+4. `activeAbortControllers` に登録が**ない**場合（タスクが既に終端状態に遷移済みで `finally` により削除済み）:
+   `TASK_CANCELED` (-32002) エラーを返却（message: "Task is already in terminal state and cannot be canceled"）
+   - クライアントは `tasks/get` で最終状態を取得可能
+   - **根拠**: 「不在」と「終端状態済み」を明確に区別することで、クライアントの再試行・状態同期ロジックを単純化
+5. `activeAbortControllers` に登録が**ある**場合: `abortController.abort()` を呼び出し
+6. `TaskStore` をポーリングし、タスクが終端状態（`TASK_STATE_CANCELED` / `TASK_STATE_COMPLETED` / `TASK_STATE_FAILED`）に遷移するまで待機
    - ポーリング間隔: 50ms、最大待機: 5000ms（タイムアウト時は `INTERNAL_ERROR`）
    - **根拠**: `abort()` は非同期のシグナル送信であり、実際の状態永続化は `TaskRunner` のイテレーションサイクル内で行われる。レスポンス前に永続化を確認することで、クライアントが受け取る `Task` オブジェクトの状態一貫性を保証する
-5. `TaskStore.get(taskId)` で最終 `Task` を取得
-6. `{ jsonrpc: "2.0", id, result: task }` を返却
+7. `TaskStore.get(taskId)` で最終 `Task` を取得
+8. `{ jsonrpc: "2.0", id, result: task }` を返却
 
 ### 4. Server Factory (`src/server/index.ts`)
 
@@ -190,7 +206,8 @@ interface CreateA2AServerOptions {
   plugin: A2APluginInterface;
   taskStore?: TaskStore;                    // default: InMemoryTaskStore
   logger?: Logger;                          // default: ConsoleLogger
-  auth?: { token: string };                 // default: 認証なし
+  auth?: { token: string };                 // デフォルト: 認証必須（未設定かつ allowUnauthenticated 未設定は起動エラー）
+  allowUnauthenticated?: boolean;           // 開発用途で auth スキップを明示する opt-out フラグ (default: false)
   taskRunnerOptions?: Partial<TaskRunnerOptions>;
 }
 
@@ -232,17 +249,21 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | **認証** | ヘッダー欠如 | 401 返却 |
 | | 不正トークン | 401 返却 |
 | | 正しいトークン | 後続処理に到達 |
-| | auth 未設定時 | 認証スキップ |
+| | auth 未設定 + allowUnauthenticated 未設定 | `createA2AServer()` が起動時例外スロー |
+| | auth 未設定 + allowUnauthenticated: true | 認証スキップ + 警告ログ出力 |
 | **JSON-RPC バリデーション** | 不正 JSON body | -32700 Parse error |
 | | `jsonrpc: "1.0"` | -32600 Invalid Request |
 | | `method: "unknown"` | -32601 Method not found |
 | | params 不正 | -32602 Invalid params |
 | **message/send** | 正常系 | Task (COMPLETED) 返却 |
-| | プラグインエラー | FAILED 状態の Task を正常レスポンスで返却 |
+| | プラグインエラー（taskId 取得後 throw） | FAILED 状態の Task を正常レスポンスで返却 |
+| | 最初のチャンク前 throw（taskId 未取得） | -32603 Internal error |
+| | catch / finally 経路 | `activeAbortControllers` から taskId が削除される（リーク防止） |
 | **tasks/get** | 存在するタスク | Task 返却 |
 | | 存在しないID | -32001 Task not found |
 | **tasks/cancel** | アクティブタスク | CANCELED 状態の Task オブジェクト返却 |
-| | 不在タスク | -32001 Task not found |
+| | 不在タスク（TaskStore にもなし） | -32001 Task not found |
+| | 既に終端状態のタスク（TaskStore に存在） | -32002 Task canceled |
 | | 終端状態待機タイムアウト | -32603 Internal error |
 | **message/stream** | 正常系 | Content-Type: text/event-stream、イベント形式検証 |
 | | SSE 切断検知 | AbortController.abort() 呼び出し検証 |
