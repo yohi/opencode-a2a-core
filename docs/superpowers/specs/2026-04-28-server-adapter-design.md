@@ -228,6 +228,9 @@ POST /
 6. `TaskStore` をポーリングし、タスクが終端状態（`TASK_STATE_CANCELED` / `TASK_STATE_COMPLETED` / `TASK_STATE_FAILED`）に遷移するまで待機
    - ポーリング間隔: 50ms、最大待機: 5000ms（タイムアウト時は `INTERNAL_ERROR`）
    - **根拠**: `abort()` は非同期のシグナル送信であり、実際の状態永続化は `TaskRunner` のイテレーションサイクル内で行われる。レスポンス前に永続化を確認することで、クライアントが受け取る `Task` オブジェクトの状態一貫性を保証する
+   - **`TaskRunner` への依存前提**: 本タイムアウト値 5000ms は、`TaskRunner` が `AbortSignal` を介してバックオフスリープを即時中断する実装（`node:timers/promises` の `delay()` に `signal` オプションを渡す方式、`src/core/task-runner.ts` 参照）に依存している。
+     これにより、`abort()` 呼び出しから `TASK_STATE_CANCELED` 永続化までの実時間遅延はマイクロタスク〜ミリ秒オーダーに収まり、デフォルト `maxBackoffMs` (10,000ms) より短いタイムアウトでも問題なく機能する。
+     `TaskRunner` の実装変更により `maxBackoffMs` 中のスリープが中断不能になった場合、本タイムアウト値も `maxBackoffMs` + 安全マージン以上に引き上げる必要がある（設計上のガード条件）。
 7. `TaskStore.get(taskId)` で最終 `Task` を取得
 8. `{ jsonrpc: "2.0", id, result: task }` を返却
 
