@@ -57,7 +57,7 @@ export class InMemoryTaskStore implements TaskStore {
     existing.artifacts = [...(existing.artifacts ?? []), structuredClone(artifact)];
   }
 
-  async appendMessage(id: string, message: Message): Promise<void> {
+  private async appendMessage(id: string, message: Message): Promise<void> {
     const existing = this.store.get(id);
     if (!existing) throw new Error(`task not found: ${id}`);
     existing.history = [...(existing.history ?? []), structuredClone(message)];

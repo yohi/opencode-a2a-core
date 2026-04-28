@@ -67,6 +67,13 @@ export class TaskRunner {
         }
 
         for await (const chunk of plugin.execute(message, ctx)) {
+          if (chunk.kind === "task") {
+            this.options.logger.warn("plugin emitted reserved 'task' chunk, skipping", {
+              taskId: task.id,
+              pluginId,
+            });
+            continue;
+          }
           chunksYielded = true;
           await this.taskStore.appendStreamChunk(task.id, chunk);
           yield chunk;

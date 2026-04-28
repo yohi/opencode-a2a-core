@@ -45,6 +45,41 @@ describe("TaskRunner — happy path", () => {
     expect(persisted?.statusHistory?.[1].state).toBe("TASK_STATE_COMPLETED");
   });
 
+  it("filters out reserved 'task' chunks emitted by plugin and logs warning", async () => {
+    const registry = new PluginRegistry();
+    const store = new InMemoryTaskStore();
+    registry.register(
+      mkPlugin("bad-plugin", async function* () {
+        // Plugin tries to emit a reserved 'task' chunk
+        yield {
+          kind: "task",
+          task: { id: "fake-id", status: { state: "TASK_STATE_PENDING", timestamp: "" } },
+        } as any;
+        yield {
+          kind: "artifact-update",
+          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "ok" }] },
+        };
+      }),
+    );
+    const runner = new TaskRunner(registry, store, {
+      maxAttempts: 1,
+      initialBackoffMs: 1,
+      maxBackoffMs: 10,
+      backoffMultiplier: 2,
+      jitterRatio: 0,
+      logger: silentLogger(),
+    });
+    const ctl = new AbortController();
+    const out = await drain(runner.run("bad-plugin", mkMessage(), { abortSignal: ctl.signal }));
+
+    // Should only have 1 'task' chunk (from runner), not 2
+    const taskChunks = out.filter((c) => c.kind === "task");
+    expect(taskChunks).toHaveLength(1);
+    expect((taskChunks[0] as any).task.id).not.toBe("fake-id");
+
+    expect(out.some((c) => c.kind === "artifact-update")).toBe(true);
+  });
+
   it("failure in plugin yields task → WORKING → FAILED and persists it", async () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
@@ -64,13 +99,19 @@ describe("TaskRunner — happy path", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const run = () => drain(runner.run("p", mkMessage(), { abortSignal: ctl.signal }));
+    const events: StreamResponse[] = [];
+    const runPromise = (async () => {
+      for await (const chunk of runner.run("p", mkMessage(), { abortSignal: ctl.signal })) {
+        events.push(chunk);
+      }
+    })();
 
-    await expect(run()).rejects.toThrow("boom");
+    await expect(runPromise).rejects.toThrow("boom");
 
     // Since it threw, we need to inspect the store manually.
-    const tasks = (store as unknown as { store: Map<string, Task> }).store.values();
-    const task = tasks.next().value;
+    const first = events[0];
+    if (first?.kind !== "task") throw new Error("Expected first chunk to be 'task'");
+    const task = await store.get(first.task.id);
     if (!task) throw new Error("task not found in store");
     expect(task.status.state).toBe("TASK_STATE_FAILED");
     expect(task.statusHistory?.[0].state).toBe("TASK_STATE_WORKING");
@@ -239,8 +280,9 @@ describe("TaskRunner — retries and errors", () => {
     }
 
     // Verify status is updated to CANCELED in store
-    const tasks = (store as unknown as { store: Map<string, Task> }).store.values();
-    const task = tasks.next().value;
+    const first = events[0];
+    if (first?.kind !== "task") throw new Error("Expected first chunk to be 'task'");
+    const task = await store.get(first.task.id);
     if (!task) throw new Error("task not found in store");
     expect(task.status.state).toBe("TASK_STATE_CANCELED");
   });
