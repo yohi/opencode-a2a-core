@@ -112,6 +112,21 @@ function bearerAuth(expectedToken: string): MiddlewareHandler;
 | `TasksGetParamsSchema` | `{ taskId: string }` |
 | `TasksCancelParamsSchema` | `{ taskId: string }` |
 
+**通知形態（Notification）に関する規約**:
+
+JSON-RPC 2.0 仕様上、`id` フィールドを持たないリクエストは通知として扱われ、サーバーは応答を返してはならない。
+本仕様ではメソッド単位で以下のとおり通知形態の取り扱いを定める:
+
+| メソッド | 通知形態の許否 | 根拠 |
+|---|---|---|
+| `message/send` | 不許可 | クライアントは `Task` 結果を受け取る必要があるため `id` 必須 |
+| `message/stream` | **不許可（必須要件）** | SSE ストリームの応答相関に `id` を要するため。通知形態は受理時点で `INVALID_REQUEST` (-32600) として拒否する |
+| `tasks/get` | 不許可 | `Task` 取得結果を返却する必要があるため `id` 必須 |
+| `tasks/cancel` | 不許可 | 終端状態の `Task` を返却する必要があるため `id` 必須 |
+
+`message/stream` における `id` 必須化により、ストリーム途中で発生するエラー応答（後述する SSE `event: error` の `data`）に含める `id` フィールドは必ず非 `null` の値となり、通知形態と応答形態の解釈衝突が発生しない。
+通知形態のリクエストはハンドラディスパッチ前に `INVALID_REQUEST` で弾く（HTTP 200 + JSON-RPC エラーオブジェクト、ただし `id` は `null`）。
+
 **エラーコード定数** (`JSON_RPC_ERRORS`):
 
 | 名前 | コード | 用途 |
@@ -162,8 +177,10 @@ POST /
 9. `catch` ブロック:
    - `taskId` が未取得（最初のチャンク yield 前に `TaskRunner` が throw）の場合: `INTERNAL_ERROR` (-32603) を返却。
      `TaskStore` 上に永続化された `Task` が存在しないため、`TaskStore.get(undefined)` を呼ばず即座にエラー応答とする
-   - `taskId` 取得済みの場合: `TaskStore.get(taskId)` で `FAILED` 状態の `Task` を取得して正常レスポンスとして返却
-     （`TaskRunner` は最初のチャンク yield 後の throw 前に必ず `FAILED` ステータスを yield・永続化する仕様のため）
+   - `taskId` 取得済みの場合: `TaskStore.get(taskId)` で**現在永続化されている終端状態の** `Task` を取得して正常レスポンスとして返却
+     （`TaskRunner` は最初のチャンク yield 後の throw 前に必ず終端ステータス〔`FAILED` / `CANCELED` 等〕を yield・永続化する仕様のため）
+     - **状態の多様性に関する注意**: `tasks/cancel` 由来の `AbortController.abort()` と本ハンドラ実行が競合した場合、永続化される終端状態は `FAILED` ではなく `CANCELED` となる。
+       本ハンドラは特定の終端状態を仮定せず、ストアに永続化されたありのままの状態を返却する（`TaskStore.get()` の戻り値を `FAILED` 等で上書きしない）
 10. `finally` ブロック: `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行、`c.req.raw.signal` のイベントリスナーを解除
     （成功・失敗・キャンセルいずれの経路でもマップへの登録残留・リスナーリークを防止）
 
@@ -186,7 +203,9 @@ POST /
      - `data`: JSON-RPC 2.0 エラーレスポンス形式の JSON 文字列
        `{ "jsonrpc": "2.0", "id": <元リクエストの id>, "error": { "code": -32603, "message": <エラー詳細> } }`
      - **設計根拠**: HTTP の RPC エラーレスポンスと完全同一の envelope を採用することで、クライアントは同一の JSON-RPC エラーパーサ・型定義を HTTP / SSE 両経路で再利用可能。`id` で元リクエストとの相関も取れる
-     - `id` は元の JSON-RPC リクエストの `id` をそのまま転記。リクエストに `id` フィールドがない（通知形態）の場合は `null` を設定
+     - `id` は元の JSON-RPC リクエストの `id` をそのまま転記する。
+       本仕様では `message/stream` における通知形態（`id` 欠如）は前段の `INVALID_REQUEST` 検証で拒否される（前述「通知形態に関する規約」参照）ため、本ハンドラに到達する時点で `id` は必ず非 `null` の値となる。
+       したがって SSE エラーイベントの `data.id` も常に元リクエストの `id` 値となり、JSON-RPC 応答 envelope と通知形態の解釈衝突は発生しない
      - `code` は `JSON_RPC_ERRORS.INTERNAL_ERROR` (-32603) を使用
 8. `finally` で `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行、イベントリスナー解除
 
@@ -291,7 +310,8 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | | `method: "unknown"` | -32601 Method not found |
 | | params 不正 | -32602 Invalid params |
 | **message/send** | 正常系 | Task (COMPLETED) 返却 |
-| | プラグインエラー（taskId 取得後 throw） | FAILED 状態の Task を正常レスポンスで返却 |
+| | プラグインエラー（taskId 取得後 throw） | TaskStore に永続化された終端状態の Task（FAILED）を正常レスポンスで返却 |
+| | `tasks/cancel` 競合（taskId 取得後 abort → throw） | TaskStore に永続化された終端状態の Task（CANCELED）を正常レスポンスで返却（FAILED で上書きしない） |
 | | 最初のチャンク前 throw（taskId 未取得） | -32603 Internal error |
 | | クライアント切断（`c.req.raw.signal` abort） | `AbortController.abort()` 呼び出し検証 |
 | | 事前 abort 済み signal で起動（already-aborted race） | `AbortController.abort()` が同期チェック経路で呼び出される（リスナー未発火でも検出） |
@@ -305,7 +325,7 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | | 終端状態待機タイムアウト | -32603 Internal error |
 | **message/stream** | 正常系 | Content-Type: text/event-stream、イベント形式検証 |
 | | 最初のチャンク前 throw（taskId 未取得） | `event: error` + `data: { jsonrpc: "2.0", id: <req.id>, error: { code: -32603, message: ... } }` を1件送信して終了 |
-| | 最初のチャンク前 throw（リクエスト id なし） | SSE エラーイベントの `data.id` が `null` |
+| | 通知形態リクエスト（`id` フィールド欠如） | -32600 Invalid Request を JSON-RPC 応答（HTTP 200, `id: null`）として返却し、SSE ストリームは開始しない |
 | | SSE 切断検知 | `AbortController.abort()` 呼び出し検証 |
 | | 事前 abort 済み signal で起動（already-aborted race） | `AbortController.abort()` が同期チェック経路で呼び出される（リスナー未発火でも検出） |
 | **AgentCard** | GET 正常系 | プラグインメタデータの JSON 返却 |
