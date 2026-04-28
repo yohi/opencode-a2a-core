@@ -4,12 +4,16 @@ exclude_paths:
 
 ignore_issues:
   - file: "src/core/task-runner.ts"
+    patternId: ".*Non-serializable expression.*"
+  - file: "src/core/task-runner.ts"
     patternId: "Non-serializable expression must be wrapped with $(...)"
   - file: "src/core/task-runner.ts"
     patternId: "qwik/valid-lexical-scope"
   - file: "src/core/task-runner.ts"
     patternId: "useValidQwikLexicalScope"
   - file: "src/core/task-runner.ts"
-    patternId: "QwikValidLexicalScope"
-  - file: "src/core/task-runner.ts"
     patternId: "useQwikValidLexicalScope"
+  - file: "src/core/task-runner.ts"
+    patternId: "Biome.useQwikValidLexicalScope"
+  - file: "src/core/task-runner.ts"
+    patternId: "ESLint.qwik/valid-lexical-scope"
