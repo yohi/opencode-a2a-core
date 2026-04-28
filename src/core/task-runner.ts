@@ -161,7 +161,6 @@ export class TaskRunner {
         return reject(signal.reason);
       }
 
-      // eslint-disable-next-line qwik/valid-lexical-scope
       // biome-ignore lint/nursery/useQwikValidLexicalScope: False positive in non-Qwik project
       const onAbort = () => {
         clearTimeout(timeout);
