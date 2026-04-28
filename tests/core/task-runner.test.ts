@@ -49,10 +49,11 @@ describe("TaskRunner — happy path", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      // eslint-disable-next-line require-yield
-      mkPlugin("p", async function* () {
-        throw new Error("boom");
-      }),
+      mkPlugin("p",
+        // eslint-disable-next-line require-yield
+        async function* () {
+          throw new Error("boom");
+        }),
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 1,
@@ -185,11 +186,12 @@ describe("TaskRunner — retries and errors", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      // eslint-disable-next-line require-yield
-      mkPlugin("no-retry", async function* () {
-        attempts++;
-        throw new NonRetriableError("fatal");
-      }),
+      mkPlugin("no-retry",
+        // eslint-disable-next-line require-yield
+        async function* () {
+          attempts++;
+          throw new NonRetriableError("fatal");
+        }),
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -208,10 +210,11 @@ describe("TaskRunner — retries and errors", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      // eslint-disable-next-line require-yield
-      mkPlugin("long-retry", async function* () {
-        throw new Error("fail");
-      }),
+      mkPlugin("long-retry",
+        // eslint-disable-next-line require-yield
+        async function* () {
+          throw new Error("fail");
+        }),
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -249,11 +252,12 @@ describe("TaskRunner — all attempts fail", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      // eslint-disable-next-line require-yield
-      mkPlugin("always-fail", async function* () {
-        attempts++;
-        throw new Error(`boom-${attempts}`);
-      }),
+      mkPlugin("always-fail",
+        // eslint-disable-next-line require-yield
+        async function* () {
+          attempts++;
+          throw new Error(`boom-${attempts}`);
+        }),
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -294,10 +298,11 @@ describe("TaskRunner — cancellation before start", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      // eslint-disable-next-line require-yield
-      mkPlugin("never", async function* () {
-        calls++;
-      }),
+      mkPlugin("never",
+        // eslint-disable-next-line require-yield
+        async function* () {
+          calls++;
+        }),
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -415,7 +420,12 @@ describe("TaskRunner — post-yield error does not retry", () => {
       throw new Error("Expected last chunk to be status-update");
     }
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect((last.status.message?.parts[0] as any).text).toMatch(/after-yield-boom/);
+    const part = last.status.message?.parts[0];
+    if (part && part.kind === "text") {
+      expect(part.text).toMatch(/after-yield-boom/);
+    } else {
+      throw new Error("Expected text part in status message");
+    }
 
     // Verify persistence in store
     const firstChunk = out[0];
@@ -433,11 +443,12 @@ describe("TaskRunner — non-retriable errors", () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      // eslint-disable-next-line require-yield
-      mkPlugin("permanent", async function* () {
-        attempts++;
-        throw new NonRetriableError("bad-config");
-      }),
+      mkPlugin("permanent",
+        // eslint-disable-next-line require-yield
+        async function* () {
+          attempts++;
+          throw new NonRetriableError("bad-config");
+        }),
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -458,7 +469,12 @@ describe("TaskRunner — non-retriable errors", () => {
     expect(attempts).toBe(1);
     const last = out.at(-1) as { kind: "status-update"; status: TaskStatus };
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect((last.status.message?.parts[0] as any).text).toMatch(/bad-config/);
+    const part = last.status.message?.parts[0];
+    if (part && part.kind === "text") {
+      expect(part.text).toMatch(/bad-config/);
+    } else {
+      throw new Error("Expected text part in status message");
+    }
   });
 
   it("missing plugin id yields { kind: task } then FAILED (not an uncaught throw)", async () => {
@@ -478,7 +494,12 @@ describe("TaskRunner — non-retriable errors", () => {
     expect(kinds[0]).toBe("task");
     const last = out.at(-1) as { kind: "status-update"; status: TaskStatus };
     expect(last.status.state).toBe("TASK_STATE_FAILED");
-    expect((last.status.message?.parts[0] as any).text).toMatch(/plugin not found/i);
+    const part = last.status.message?.parts[0];
+    if (part && part.kind === "text") {
+      expect(part.text).toMatch(/plugin not found/i);
+    } else {
+      throw new Error("Expected text part in status message");
+    }
   });
 
   it("throws error immediately if maxAttempts is 0 or less", async () => {
