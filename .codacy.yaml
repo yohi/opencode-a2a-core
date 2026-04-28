@@ -1,23 +1,23 @@
 ---
 exclude_paths:
-  - "tests/**"
+  - 'tests/**'
 
 engines:
   biome:
     exclude_paths:
-      - "src/**"
-      - "tests/**"
+      - 'src/**'
+      - 'tests/**'
 
 ignore_issues:
-  - file: "src/core/task-runner.ts"
-    patternId: "lint_correctness_useQwikValidLexicalScope"
-  - file: "src/core/task-runner.ts"
-    patternId: "lint_nursery_useQwikValidLexicalScope"
-  - file: "tests/core/task-runner.test.ts"
-    patternId: "lint_correctness_useYieldContext"
-  - file: "tests/core/task-runner.test.ts"
-    patternId: "lint_correctness_useQwikValidLexicalScope"
-  - file: "tests/core/task-runner.test.ts"
-    patternId: "lint_nursery_useQwikValidLexicalScope"
-  - patternId: ".*Non-serializable expression.*"
+  - file: 'src/core/task-runner.ts'
+    patternId: 'lint_correctness_useQwikValidLexicalScope'
+  - file: 'src/core/task-runner.ts'
+    patternId: 'lint_nursery_useQwikValidLexicalScope'
+  - file: 'tests/core/task-runner.test.ts'
+    patternId: 'lint_correctness_useYieldContext'
+  - file: 'tests/core/task-runner.test.ts'
+    patternId: 'lint_correctness_useQwikValidLexicalScope'
+  - file: 'tests/core/task-runner.test.ts'
+    patternId: 'lint_nursery_useQwikValidLexicalScope'
+  - patternId: '.*Non-serializable expression.*'
   - patternId: ".*This generator function doesn't contain yield.*"

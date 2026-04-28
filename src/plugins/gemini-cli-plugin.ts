@@ -50,7 +50,7 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
     });
 
     for await (const line of proc) {
-      const event = parseGeminiEvent(line);
+      const event = parseGeminiEvent(line, ctx.taskId);
       if (event !== null) {
         yield event;
       }
@@ -74,7 +74,7 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 type GeminiEvent =
   | { type: "text"; text: string }
   | { type: "thinking"; text: string }
-  | { type: "error"; message: string }
+  | { type: "error"; message: string; name?: string }
   | { type: string; [key: string]: unknown };
 
 function messageToPrompt(message: Message): string {
@@ -88,7 +88,7 @@ function messageToPrompt(message: Message): string {
     .join("\n");
 }
 
-function parseGeminiEvent(raw: unknown): StreamResponse | null {
+export function parseGeminiEvent(raw: unknown, taskId: string): StreamResponse | null {
   if (typeof raw !== "object" || raw === null) {
     return null;
   }
@@ -103,7 +103,7 @@ function parseGeminiEvent(raw: unknown): StreamResponse | null {
       return {
         kind: "artifact-update",
         artifact: {
-          artifactId: "gemini-out",
+          artifactId: `gemini-out-${taskId}`,
           parts: [{ kind: "text", text: event.text }],
         },
       };
@@ -111,9 +111,12 @@ function parseGeminiEvent(raw: unknown): StreamResponse | null {
       return null;
     case "error":
       if (typeof event.message !== "string") {
-        throw new Error("gemini: unknown error");
+        const details = JSON.stringify({ type: event.type, name: event.name }, (k, v) =>
+          v === undefined ? null : v,
+        ).slice(0, 100);
+        throw new NonRetriableError(`gemini: unknown error - ${details}`);
       }
-      throw new Error(`gemini: ${event.message}`);
+      throw new NonRetriableError(`gemini: ${event.message}`);
     default:
       return null;
   }

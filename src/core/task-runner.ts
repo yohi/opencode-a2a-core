@@ -1,11 +1,15 @@
-import { setTimeout as delay } from "node:timers/promises";
-import type { Message, StreamResponse, TaskStatus } from "./a2a-types.js";
-import type { A2APluginContext } from "./plugin-interface.js";
-import type { PluginRegistry } from "./registry.js";
-import type { TaskStore } from "./task-store.js";
-import type { Logger } from "./logger.js";
-import { NonRetriableError, PluginNotFoundError, serializeError } from "./errors.js";
-import { computeBackoffMs } from "./helpers/exponential-backoff.js";
+import { setTimeout as delay } from 'node:timers/promises';
+import type { Message, StreamResponse, TaskStatus } from './a2a-types.js';
+import type { A2APluginContext } from './plugin-interface.js';
+import type { PluginRegistry } from './registry.js';
+import type { TaskStore } from './task-store.js';
+import type { Logger } from './logger.js';
+import {
+  NonRetriableError,
+  PluginNotFoundError,
+  serializeError,
+} from './errors.js';
+import { computeBackoffMs } from './helpers/exponential-backoff.js';
 
 export interface TaskRunnerOptions {
   maxAttempts: number;
@@ -20,23 +24,27 @@ export class TaskRunner {
   constructor(
     private readonly registry: PluginRegistry,
     private readonly taskStore: TaskStore,
-    private readonly options: TaskRunnerOptions,
+    private readonly options: TaskRunnerOptions
   ) {}
 
   async *run(
     pluginId: string,
     message: Message,
-    opts: { abortSignal: AbortSignal; contextId?: string },
+    opts: { abortSignal: AbortSignal; contextId?: string }
   ): AsyncIterable<StreamResponse> {
     const { maxAttempts } = this.options;
-    if (!Number.isFinite(maxAttempts) || !Number.isInteger(maxAttempts) || maxAttempts <= 0) {
-      throw new Error("maxAttempts must be a positive integer");
+    if (
+      !Number.isFinite(maxAttempts) ||
+      !Number.isInteger(maxAttempts) ||
+      maxAttempts <= 0
+    ) {
+      throw new Error('maxAttempts must be a positive integer');
     }
 
     const task = await this.taskStore.create({
       ...(opts.contextId !== undefined ? { contextId: opts.contextId } : {}),
     });
-    yield { kind: "task", task };
+    yield { kind: 'task', task };
 
     const plugin = this.registry.get(pluginId);
     if (!plugin) {
@@ -57,7 +65,7 @@ export class TaskRunner {
 
     for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
       if (opts.abortSignal.aborted) {
-        yield* this.emitTerminal(task.id, "TASK_STATE_CANCELED");
+        yield* this.emitTerminal(task.id, 'TASK_STATE_CANCELED');
         return;
       }
       try {
@@ -67,11 +75,14 @@ export class TaskRunner {
         }
 
         for await (const chunk of plugin.execute(message, ctx)) {
-          if (chunk.kind === "task") {
-            this.options.logger.warn("plugin emitted reserved 'task' chunk, skipping", {
-              taskId: task.id,
-              pluginId,
-            });
+          if (chunk.kind === 'task') {
+            this.options.logger.warn(
+              "plugin emitted reserved 'task' chunk, skipping",
+              {
+                taskId: task.id,
+                pluginId,
+              }
+            );
             continue;
           }
           chunksYielded = true;
@@ -80,18 +91,18 @@ export class TaskRunner {
         }
 
         const currentTask = await this.taskStore.get(task.id);
-        if (currentTask?.status.state === "TASK_STATE_WORKING") {
-          yield* this.emitTerminal(task.id, "TASK_STATE_COMPLETED");
+        if (currentTask?.status.state === 'TASK_STATE_WORKING') {
+          yield* this.emitTerminal(task.id, 'TASK_STATE_COMPLETED');
         }
         return;
       } catch (err) {
         if (opts.abortSignal.aborted) {
-          yield* this.emitTerminal(task.id, "TASK_STATE_CANCELED");
+          yield* this.emitTerminal(task.id, 'TASK_STATE_CANCELED');
           return;
         }
 
         lastError = err;
-        this.options.logger.warn("plugin execute failed", {
+        this.options.logger.warn('plugin execute failed', {
           taskId: task.id,
           pluginId,
           attempt,
@@ -113,13 +124,13 @@ export class TaskRunner {
                 jitterRatio: this.options.jitterRatio,
               }),
               undefined,
-              { signal: opts.abortSignal },
+              { signal: opts.abortSignal }
             );
           } catch (sleepErr: unknown) {
             lastError = sleepErr;
             // Break loop on sleep failure (e.g. AbortSignal)
             if (
-              (sleepErr instanceof Error && sleepErr.name === "AbortError") ||
+              (sleepErr instanceof Error && sleepErr.name === 'AbortError') ||
               opts.abortSignal.aborted
             ) {
               break;
@@ -130,7 +141,7 @@ export class TaskRunner {
     }
 
     if (opts.abortSignal.aborted) {
-      yield* this.emitTerminal(task.id, "TASK_STATE_CANCELED");
+      yield* this.emitTerminal(task.id, 'TASK_STATE_CANCELED');
       return;
     }
 
@@ -140,32 +151,35 @@ export class TaskRunner {
 
   private async *emitWorking(taskId: string): AsyncIterable<StreamResponse> {
     const status: TaskStatus = {
-      state: "TASK_STATE_WORKING",
+      state: 'TASK_STATE_WORKING',
       timestamp: new Date().toISOString(),
     };
     await this.taskStore.updateStatus(taskId, status);
-    yield { kind: "status-update", status };
+    yield { kind: 'status-update', status };
   }
 
   private async *emitTerminal(
     taskId: string,
-    state: "TASK_STATE_COMPLETED" | "TASK_STATE_CANCELED",
+    state: 'TASK_STATE_COMPLETED' | 'TASK_STATE_CANCELED'
   ): AsyncIterable<StreamResponse> {
     const status: TaskStatus = { state, timestamp: new Date().toISOString() };
     await this.taskStore.updateStatus(taskId, status);
-    yield { kind: "status-update", status };
+    yield { kind: 'status-update', status };
   }
 
-  private async *emitFailed(taskId: string, err: unknown): AsyncIterable<StreamResponse> {
+  private async *emitFailed(
+    taskId: string,
+    err: unknown
+  ): AsyncIterable<StreamResponse> {
     const status: TaskStatus = {
-      state: "TASK_STATE_FAILED",
+      state: 'TASK_STATE_FAILED',
       timestamp: new Date().toISOString(),
       message: {
-        role: "ROLE_AGENT",
-        parts: [{ kind: "text", text: serializeError(err).message }],
+        role: 'ROLE_AGENT',
+        parts: [{ kind: 'text', text: serializeError(err).message }],
       },
     };
     await this.taskStore.updateStatus(taskId, status);
-    yield { kind: "status-update", status };
+    yield { kind: 'status-update', status };
   }
 }

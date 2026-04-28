@@ -23,13 +23,13 @@
 
 ## Phase 概要
 
-| Phase | 内容 | Phase ブランチ | Task 数 |
-|-------|------|---------------|--------|
-| 0 | CI/CD セットアップ | `feature/phase0__ci-setup__base` | 1 |
-| 1 | プロジェクト基盤 | `feature/phase1__project-scaffold__base` | 3 |
-| 2 | コアモジュール | `feature/phase2__core-modules__base` | 8 |
-| 3 | TaskRunner | `feature/phase3__task-runner__base` | 7 |
-| 4 | 設定とプラグイン | `feature/phase4__config-and-plugin__base` | 3 |
+| Phase | 内容               | Phase ブランチ                            | Task 数 |
+| ----- | ------------------ | ----------------------------------------- | ------- |
+| 0     | CI/CD セットアップ | `feature/phase0__ci-setup__base`          | 1       |
+| 1     | プロジェクト基盤   | `feature/phase1__project-scaffold__base`  | 3       |
+| 2     | コアモジュール     | `feature/phase2__core-modules__base`      | 8       |
+| 3     | TaskRunner         | `feature/phase3__task-runner__base`       | 7       |
+| 4     | 設定とプラグイン   | `feature/phase4__config-and-plugin__base` | 3       |
 
 ---
 
@@ -75,6 +75,7 @@ opencode-a2a-core/
 ```
 
 **Ownership rule (enforced by code-review during implementation):**
+
 - `src/core/` depends only on `zod`.
 - `src/plugins/` depends only on `src/core/`.
 - Tests live under `tests/` mirroring the source tree (not co-located) to keep `src/` clean for publication.
@@ -92,6 +93,7 @@ opencode-a2a-core/
 > **PR:** → `feature/phase0__ci-setup__base` (Draft)
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 
 - [ ] **Step 1.1: Create CI workflow**
@@ -114,7 +116,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version-file: ".node-version"
+          node-version-file: '.node-version'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -157,6 +159,7 @@ git commit -m "ci: GitHub Actions CI ワークフローを追加（ubuntu-slim +
 > **PR:** → `feature/phase1__project-scaffold__base` (Draft)
 
 **Files:**
+
 - Create: `package.json`
 - Create: `tsconfig.json`
 - Create: `tsconfig.build.json`
@@ -268,16 +271,16 @@ auto-install-peers=true
 - [ ] **Step 1.6: Create `vitest.config.ts`**
 
 ```ts
-import { defineConfig } from "vitest/config";
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ["tests/**/*.test.ts"],
+    include: ['tests/**/*.test.ts'],
     coverage: {
-      provider: "v8",
-      reporter: ["text", "html", "lcov"],
-      include: ["src/**/*.ts"],
-      exclude: ["src/**/*.d.ts", "src/index.ts"],
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.d.ts', 'src/index.ts'],
     },
     testTimeout: 10000,
   },
@@ -313,6 +316,7 @@ git commit -m "chore: scaffold TypeScript/pnpm/Vitest project setup"
 > **PR:** → `feature/phase1__project-scaffold__base` (Draft)
 
 **Files:**
+
 - Create: `.devcontainer/devcontainer.json`
 
 - [ ] **Step 2.1: Create devcontainer.json**
@@ -367,6 +371,7 @@ git commit -m "chore: add Devcontainer (Node 22 + pnpm@9 pinned)"
 > **PR:** → `feature/phase1__project-scaffold__base` (Draft)
 
 **Files:**
+
 - Create: `.eslintrc.cjs`
 - Create: `.prettierrc.json`
 - Create: `.prettierignore`
@@ -376,19 +381,19 @@ git commit -m "chore: add Devcontainer (Node 22 + pnpm@9 pinned)"
 ```js
 module.exports = {
   root: true,
-  parser: "@typescript-eslint/parser",
-  parserOptions: { project: "./tsconfig.json" },
-  plugins: ["@typescript-eslint"],
+  parser: '@typescript-eslint/parser',
+  parserOptions: { project: './tsconfig.json' },
+  plugins: ['@typescript-eslint'],
   extends: [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:@typescript-eslint/recommended-requiring-type-checking",
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
   ],
   rules: {
-    "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-    "@typescript-eslint/consistent-type-imports": "error",
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/consistent-type-imports': 'error',
   },
-  ignorePatterns: ["dist/", "node_modules/", "coverage/"],
+  ignorePatterns: ['dist/', 'node_modules/', 'coverage/'],
 };
 ```
 
@@ -442,6 +447,7 @@ git commit -m "chore: add ESLint + Prettier config"
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/errors.ts`
 - Create: `tests/core/errors.test.ts`
 
@@ -450,54 +456,57 @@ git commit -m "chore: add ESLint + Prettier config"
 Create `tests/core/errors.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from 'vitest';
 import {
   A2AError,
   NonRetriableError,
   SubprocessError,
   serializeError,
-} from "../../src/core/errors.js";
+} from '../../src/core/errors.js';
 
-describe("A2AError hierarchy", () => {
-  it("A2AError carries code + message", () => {
-    const err = new A2AError("BOOM", "something went wrong");
+describe('A2AError hierarchy', () => {
+  it('A2AError carries code + message', () => {
+    const err = new A2AError('BOOM', 'something went wrong');
     expect(err).toBeInstanceOf(Error);
     expect(err).toBeInstanceOf(A2AError);
-    expect(err.code).toBe("BOOM");
-    expect(err.message).toBe("something went wrong");
+    expect(err.code).toBe('BOOM');
+    expect(err.message).toBe('something went wrong');
   });
 
-  it("NonRetriableError is an A2AError and signals no retry", () => {
-    const err = new NonRetriableError("PluginNotFound");
+  it('NonRetriableError is an A2AError and signals no retry', () => {
+    const err = new NonRetriableError('PluginNotFound');
     expect(err).toBeInstanceOf(A2AError);
-    expect(err.code).toBe("NonRetriable");
-    expect(err.message).toBe("PluginNotFound");
+    expect(err.code).toBe('NonRetriable');
+    expect(err.message).toBe('PluginNotFound');
   });
 
-  it("SubprocessError carries exitCode and stderr", () => {
-    const err = new SubprocessError(127, "command not found");
+  it('SubprocessError carries exitCode and stderr', () => {
+    const err = new SubprocessError(127, 'command not found');
     expect(err).toBeInstanceOf(A2AError);
-    expect(err.code).toBe("SubprocessFailed");
+    expect(err.code).toBe('SubprocessFailed');
     expect(err.exitCode).toBe(127);
-    expect(err.stderr).toBe("command not found");
+    expect(err.stderr).toBe('command not found');
   });
 });
 
-describe("serializeError", () => {
-  it("serializes A2AError to { code, message }", () => {
-    const out = serializeError(new A2AError("X", "y"));
-    expect(out).toEqual({ code: "X", message: "y" });
+describe('serializeError', () => {
+  it('serializes A2AError to { code, message }', () => {
+    const out = serializeError(new A2AError('X', 'y'));
+    expect(out).toEqual({ code: 'X', message: 'y' });
   });
 
   it("serializes generic Error to { code: 'Unknown', message }", () => {
-    const out = serializeError(new Error("oops"));
-    expect(out).toEqual({ code: "Unknown", message: "oops" });
+    const out = serializeError(new Error('oops'));
+    expect(out).toEqual({ code: 'Unknown', message: 'oops' });
   });
 
   it("serializes non-Error values to { code: 'Unknown', message: String(v) }", () => {
-    expect(serializeError("string-err")).toEqual({ code: "Unknown", message: "string-err" });
-    expect(serializeError(42)).toEqual({ code: "Unknown", message: "42" });
-    expect(serializeError(null)).toEqual({ code: "Unknown", message: "null" });
+    expect(serializeError('string-err')).toEqual({
+      code: 'Unknown',
+      message: 'string-err',
+    });
+    expect(serializeError(42)).toEqual({ code: 'Unknown', message: '42' });
+    expect(serializeError(null)).toEqual({ code: 'Unknown', message: 'null' });
   });
 });
 ```
@@ -513,34 +522,37 @@ Expected: FAIL — module not found.
 export class A2AError extends Error {
   constructor(
     public readonly code: string,
-    message: string,
+    message: string
   ) {
     super(message);
-    this.name = "A2AError";
+    this.name = 'A2AError';
   }
 }
 
 export class NonRetriableError extends A2AError {
   constructor(message: string) {
-    super("NonRetriable", message);
-    this.name = "NonRetriableError";
+    super('NonRetriable', message);
+    this.name = 'NonRetriableError';
   }
 }
 
 export class SubprocessError extends A2AError {
   constructor(
     public readonly exitCode: number,
-    public readonly stderr: string,
+    public readonly stderr: string
   ) {
-    super("SubprocessFailed", `subprocess exited with ${exitCode}: ${stderr}`);
-    this.name = "SubprocessError";
+    super('SubprocessFailed', `subprocess exited with ${exitCode}: ${stderr}`);
+    this.name = 'SubprocessError';
   }
 }
 
-export function serializeError(err: unknown): { code: string; message: string } {
+export function serializeError(err: unknown): {
+  code: string;
+  message: string;
+} {
   if (err instanceof A2AError) return { code: err.code, message: err.message };
-  if (err instanceof Error) return { code: "Unknown", message: err.message };
-  return { code: "Unknown", message: String(err) };
+  if (err instanceof Error) return { code: 'Unknown', message: err.message };
+  return { code: 'Unknown', message: String(err) };
 }
 ```
 
@@ -568,6 +580,7 @@ git commit -m "feat(core): add A2AError hierarchy + serializeError"
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/logger.ts`
 - Create: `tests/core/logger.test.ts`
 
@@ -576,51 +589,57 @@ git commit -m "feat(core): add A2AError hierarchy + serializeError"
 Create `tests/core/logger.test.ts`:
 
 ```ts
-import { describe, it, expect, vi } from "vitest";
-import { ConsoleLogger, type Logger } from "../../src/core/logger.js";
+import { describe, it, expect, vi } from 'vitest';
+import { ConsoleLogger, type Logger } from '../../src/core/logger.js';
 
-describe("ConsoleLogger", () => {
-  it("implements Logger interface", () => {
+describe('ConsoleLogger', () => {
+  it('implements Logger interface', () => {
     const log: Logger = new ConsoleLogger();
-    expect(typeof log.debug).toBe("function");
-    expect(typeof log.info).toBe("function");
-    expect(typeof log.warn).toBe("function");
-    expect(typeof log.error).toBe("function");
+    expect(typeof log.debug).toBe('function');
+    expect(typeof log.info).toBe('function');
+    expect(typeof log.warn).toBe('function');
+    expect(typeof log.error).toBe('function');
   });
 
-  it("writes info to stdout in JSON format", () => {
-    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const log = new ConsoleLogger({ level: "info" });
-    log.info("hello", { taskId: "t1" });
+  it('writes info to stdout in JSON format', () => {
+    const spy = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: 'info' });
+    log.info('hello', { taskId: 't1' });
     expect(spy).toHaveBeenCalledOnce();
     const [line] = spy.mock.calls[0] as [string];
     const parsed = JSON.parse(line);
-    expect(parsed.level).toBe("info");
-    expect(parsed.msg).toBe("hello");
-    expect(parsed.taskId).toBe("t1");
+    expect(parsed.level).toBe('info');
+    expect(parsed.msg).toBe('hello');
+    expect(parsed.taskId).toBe('t1');
     expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     spy.mockRestore();
   });
 
-  it("filters below configured level", () => {
-    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const log = new ConsoleLogger({ level: "warn" });
-    log.debug("hidden");
-    log.info("hidden");
-    log.warn("shown");
+  it('filters below configured level', () => {
+    const spy = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: 'warn' });
+    log.debug('hidden');
+    log.info('hidden');
+    log.warn('shown');
     expect(spy).toHaveBeenCalledOnce();
     spy.mockRestore();
   });
 
-  it("masks secret-like keys in context", () => {
-    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const log = new ConsoleLogger({ level: "info" });
-    log.info("event", { apiKey: "s3cr3t", token: "abc", safe: "ok" });
+  it('masks secret-like keys in context', () => {
+    const spy = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true);
+    const log = new ConsoleLogger({ level: 'info' });
+    log.info('event', { apiKey: 's3cr3t', token: 'abc', safe: 'ok' });
     const [line] = spy.mock.calls[0] as [string];
     const parsed = JSON.parse(line);
-    expect(parsed.apiKey).toBe("***");
-    expect(parsed.token).toBe("***");
-    expect(parsed.safe).toBe("ok");
+    expect(parsed.apiKey).toBe('***');
+    expect(parsed.token).toBe('***');
+    expect(parsed.safe).toBe('ok');
     spy.mockRestore();
   });
 });
@@ -634,7 +653,7 @@ Expected: FAIL — module not found.
 - [ ] **Step 5.3: Implement `src/core/logger.ts`**
 
 ```ts
-export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface Logger {
   debug(msg: string, ctx?: Record<string, unknown>): void;
@@ -643,30 +662,45 @@ export interface Logger {
   error(msg: string, ctx?: Record<string, unknown>): void;
 }
 
-const LEVELS: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
-const MASK_KEYS = new Set(["apiKey", "token", "password", "authorization", "bearer"]);
+const LEVELS: Record<LogLevel, number> = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+};
+const MASK_KEYS = new Set([
+  'apiKey',
+  'token',
+  'password',
+  'authorization',
+  'bearer',
+]);
 
 export class ConsoleLogger implements Logger {
   private readonly threshold: number;
 
   constructor(opts: { level?: LogLevel } = {}) {
-    this.threshold = LEVELS[opts.level ?? "info"];
+    this.threshold = LEVELS[opts.level ?? 'info'];
   }
 
   debug(msg: string, ctx?: Record<string, unknown>): void {
-    this.emit("debug", msg, ctx);
+    this.emit('debug', msg, ctx);
   }
   info(msg: string, ctx?: Record<string, unknown>): void {
-    this.emit("info", msg, ctx);
+    this.emit('info', msg, ctx);
   }
   warn(msg: string, ctx?: Record<string, unknown>): void {
-    this.emit("warn", msg, ctx);
+    this.emit('warn', msg, ctx);
   }
   error(msg: string, ctx?: Record<string, unknown>): void {
-    this.emit("error", msg, ctx);
+    this.emit('error', msg, ctx);
   }
 
-  private emit(level: LogLevel, msg: string, ctx?: Record<string, unknown>): void {
+  private emit(
+    level: LogLevel,
+    msg: string,
+    ctx?: Record<string, unknown>
+  ): void {
     if (LEVELS[level] < this.threshold) return;
     const entry = {
       timestamp: new Date().toISOString(),
@@ -680,7 +714,7 @@ export class ConsoleLogger implements Logger {
   private mask(ctx: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(ctx)) {
-      out[k] = MASK_KEYS.has(k.toLowerCase()) ? "***" : v;
+      out[k] = MASK_KEYS.has(k.toLowerCase()) ? '***' : v;
     }
     return out;
   }
@@ -711,6 +745,7 @@ git commit -m "feat(core): add ConsoleLogger with secret-key masking"
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/a2a-types.ts`
 - Create: `tests/core/a2a-types.test.ts`
 
@@ -719,7 +754,7 @@ git commit -m "feat(core): add ConsoleLogger with secret-key masking"
 Create `tests/core/a2a-types.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from 'vitest';
 import {
   A2A_PROTOCOL_VERSION,
   PartSchema,
@@ -729,147 +764,150 @@ import {
   ArtifactSchema,
   TaskSchema,
   StreamResponseSchema,
-} from "../../src/core/a2a-types.js";
+} from '../../src/core/a2a-types.js';
 
-describe("A2A_PROTOCOL_VERSION", () => {
-  it("is 1.0.0", () => {
-    expect(A2A_PROTOCOL_VERSION).toBe("1.0.0");
+describe('A2A_PROTOCOL_VERSION', () => {
+  it('is 1.0.0', () => {
+    expect(A2A_PROTOCOL_VERSION).toBe('1.0.0');
   });
 });
 
-describe("PartSchema discriminated union", () => {
-  it("accepts TextPart", () => {
-    expect(PartSchema.parse({ kind: "text", text: "hi" })).toEqual({
-      kind: "text",
-      text: "hi",
+describe('PartSchema discriminated union', () => {
+  it('accepts TextPart', () => {
+    expect(PartSchema.parse({ kind: 'text', text: 'hi' })).toEqual({
+      kind: 'text',
+      text: 'hi',
     });
   });
 
-  it("accepts FilePart with bytes", () => {
+  it('accepts FilePart with bytes', () => {
     expect(
-      PartSchema.parse({ kind: "file", file: { name: "a.txt", bytes: "aGVsbG8=" } }),
-    ).toMatchObject({ kind: "file", file: { name: "a.txt" } });
+      PartSchema.parse({
+        kind: 'file',
+        file: { name: 'a.txt', bytes: 'aGVsbG8=' },
+      })
+    ).toMatchObject({ kind: 'file', file: { name: 'a.txt' } });
   });
 
-  it("accepts DataPart with arbitrary data", () => {
-    expect(PartSchema.parse({ kind: "data", data: { x: 1 } })).toEqual({
-      kind: "data",
+  it('accepts DataPart with arbitrary data', () => {
+    expect(PartSchema.parse({ kind: 'data', data: { x: 1 } })).toEqual({
+      kind: 'data',
       data: { x: 1 },
     });
   });
 
-  it("rejects unknown kind", () => {
-    expect(() => PartSchema.parse({ kind: "video", src: "x" })).toThrow();
+  it('rejects unknown kind', () => {
+    expect(() => PartSchema.parse({ kind: 'video', src: 'x' })).toThrow();
   });
 });
 
-describe("MessageSchema", () => {
-  it("requires role and parts", () => {
-    expect(() => MessageSchema.parse({ role: "ROLE_USER" })).toThrow();
+describe('MessageSchema', () => {
+  it('requires role and parts', () => {
+    expect(() => MessageSchema.parse({ role: 'ROLE_USER' })).toThrow();
     const m = MessageSchema.parse({
-      role: "ROLE_USER",
-      parts: [{ kind: "text", text: "hi" }],
+      role: 'ROLE_USER',
+      parts: [{ kind: 'text', text: 'hi' }],
     });
-    expect(m.role).toBe("ROLE_USER");
+    expect(m.role).toBe('ROLE_USER');
     expect(m.parts).toHaveLength(1);
   });
 
-  it("accepts optional messageId and taskId", () => {
+  it('accepts optional messageId and taskId', () => {
     const m = MessageSchema.parse({
-      role: "ROLE_AGENT",
-      parts: [{ kind: "text", text: "ok" }],
-      messageId: "m-1",
-      taskId: "t-1",
+      role: 'ROLE_AGENT',
+      parts: [{ kind: 'text', text: 'ok' }],
+      messageId: 'm-1',
+      taskId: 't-1',
     });
-    expect(m.messageId).toBe("m-1");
-    expect(m.taskId).toBe("t-1");
+    expect(m.messageId).toBe('m-1');
+    expect(m.taskId).toBe('t-1');
   });
 });
 
-describe("TaskStateSchema", () => {
-  it("accepts the five defined states", () => {
+describe('TaskStateSchema', () => {
+  it('accepts the five defined states', () => {
     for (const s of [
-      "TASK_STATE_PENDING",
-      "TASK_STATE_WORKING",
-      "TASK_STATE_COMPLETED",
-      "TASK_STATE_FAILED",
-      "TASK_STATE_CANCELED",
+      'TASK_STATE_PENDING',
+      'TASK_STATE_WORKING',
+      'TASK_STATE_COMPLETED',
+      'TASK_STATE_FAILED',
+      'TASK_STATE_CANCELED',
     ]) {
       expect(TaskStateSchema.parse(s)).toBe(s);
     }
   });
 
-  it("rejects unknown states", () => {
-    expect(() => TaskStateSchema.parse("TASK_STATE_UNKNOWN")).toThrow();
+  it('rejects unknown states', () => {
+    expect(() => TaskStateSchema.parse('TASK_STATE_UNKNOWN')).toThrow();
   });
 });
 
-describe("TaskStatusSchema / ArtifactSchema / TaskSchema", () => {
-  it("TaskStatus with state+message+timestamp parses", () => {
+describe('TaskStatusSchema / ArtifactSchema / TaskSchema', () => {
+  it('TaskStatus with state+message+timestamp parses', () => {
     expect(
       TaskStatusSchema.parse({
-        state: "TASK_STATE_FAILED",
-        message: "boom",
-        timestamp: "2026-04-24T10:00:00Z",
-      }),
-    ).toMatchObject({ state: "TASK_STATE_FAILED" });
+        state: 'TASK_STATE_FAILED',
+        message: 'boom',
+        timestamp: '2026-04-24T10:00:00Z',
+      })
+    ).toMatchObject({ state: 'TASK_STATE_FAILED' });
   });
 
-  it("Artifact requires artifactId and parts", () => {
+  it('Artifact requires artifactId and parts', () => {
     const a = ArtifactSchema.parse({
-      artifactId: "a-1",
-      parts: [{ kind: "text", text: "ok" }],
+      artifactId: 'a-1',
+      parts: [{ kind: 'text', text: 'ok' }],
     });
-    expect(a.artifactId).toBe("a-1");
+    expect(a.artifactId).toBe('a-1');
   });
 
-  it("Task requires id and status", () => {
+  it('Task requires id and status', () => {
     const t = TaskSchema.parse({
-      id: "t-1",
-      status: { state: "TASK_STATE_PENDING" },
+      id: 't-1',
+      status: { state: 'TASK_STATE_PENDING' },
     });
-    expect(t.id).toBe("t-1");
+    expect(t.id).toBe('t-1');
   });
 });
 
-describe("StreamResponseSchema discriminated union", () => {
-  it("accepts kind=task", () => {
+describe('StreamResponseSchema discriminated union', () => {
+  it('accepts kind=task', () => {
     const r = StreamResponseSchema.parse({
-      kind: "task",
-      task: { id: "t-1", status: { state: "TASK_STATE_PENDING" } },
+      kind: 'task',
+      task: { id: 't-1', status: { state: 'TASK_STATE_PENDING' } },
     });
-    expect(r.kind).toBe("task");
+    expect(r.kind).toBe('task');
   });
 
-  it("accepts kind=status-update", () => {
+  it('accepts kind=status-update', () => {
     expect(
       StreamResponseSchema.parse({
-        kind: "status-update",
-        status: { state: "TASK_STATE_WORKING" },
-      }).kind,
-    ).toBe("status-update");
+        kind: 'status-update',
+        status: { state: 'TASK_STATE_WORKING' },
+      }).kind
+    ).toBe('status-update');
   });
 
-  it("accepts kind=artifact-update", () => {
+  it('accepts kind=artifact-update', () => {
     expect(
       StreamResponseSchema.parse({
-        kind: "artifact-update",
-        artifact: { artifactId: "a1", parts: [{ kind: "text", text: "x" }] },
-      }).kind,
-    ).toBe("artifact-update");
+        kind: 'artifact-update',
+        artifact: { artifactId: 'a1', parts: [{ kind: 'text', text: 'x' }] },
+      }).kind
+    ).toBe('artifact-update');
   });
 
-  it("accepts kind=message", () => {
+  it('accepts kind=message', () => {
     expect(
       StreamResponseSchema.parse({
-        kind: "message",
-        message: { role: "ROLE_AGENT", parts: [{ kind: "text", text: "hi" }] },
-      }).kind,
-    ).toBe("message");
+        kind: 'message',
+        message: { role: 'ROLE_AGENT', parts: [{ kind: 'text', text: 'hi' }] },
+      }).kind
+    ).toBe('message');
   });
 
-  it("rejects unknown kind", () => {
-    expect(() => StreamResponseSchema.parse({ kind: "oops" })).toThrow();
+  it('rejects unknown kind', () => {
+    expect(() => StreamResponseSchema.parse({ kind: 'oops' })).toThrow();
   });
 });
 ```
@@ -882,18 +920,18 @@ Expected: FAIL — module not found.
 - [ ] **Step 6.3: Implement `src/core/a2a-types.ts`**
 
 ```ts
-import { z } from "zod";
+import { z } from 'zod';
 
-export const A2A_PROTOCOL_VERSION = "1.0.0" as const;
+export const A2A_PROTOCOL_VERSION = '1.0.0' as const;
 
 // ---- Parts ----
 export const TextPartSchema = z.object({
-  kind: z.literal("text"),
+  kind: z.literal('text'),
   text: z.string(),
 });
 
 export const FilePartSchema = z.object({
-  kind: z.literal("file"),
+  kind: z.literal('file'),
   file: z
     .object({
       name: z.string().optional(),
@@ -902,16 +940,16 @@ export const FilePartSchema = z.object({
       uri: z.string().url().optional(),
     })
     .refine((f) => f.bytes != null || f.uri != null, {
-      message: "FilePart requires either bytes or uri",
+      message: 'FilePart requires either bytes or uri',
     }),
 });
 
 export const DataPartSchema = z.object({
-  kind: z.literal("data"),
+  kind: z.literal('data'),
   data: z.record(z.unknown()),
 });
 
-export const PartSchema = z.discriminatedUnion("kind", [
+export const PartSchema = z.discriminatedUnion('kind', [
   TextPartSchema,
   FilePartSchema,
   DataPartSchema,
@@ -920,7 +958,7 @@ export type Part = z.infer<typeof PartSchema>;
 
 // ---- Message ----
 export const MessageSchema = z.object({
-  role: z.enum(["ROLE_USER", "ROLE_AGENT"]),
+  role: z.enum(['ROLE_USER', 'ROLE_AGENT']),
   parts: z.array(PartSchema).min(1),
   messageId: z.string().optional(),
   taskId: z.string().optional(),
@@ -930,11 +968,11 @@ export type Message = z.infer<typeof MessageSchema>;
 
 // ---- Task state/status ----
 export const TaskStateSchema = z.enum([
-  "TASK_STATE_PENDING",
-  "TASK_STATE_WORKING",
-  "TASK_STATE_COMPLETED",
-  "TASK_STATE_FAILED",
-  "TASK_STATE_CANCELED",
+  'TASK_STATE_PENDING',
+  'TASK_STATE_WORKING',
+  'TASK_STATE_COMPLETED',
+  'TASK_STATE_FAILED',
+  'TASK_STATE_CANCELED',
 ]);
 export type TaskState = z.infer<typeof TaskStateSchema>;
 
@@ -965,11 +1003,11 @@ export const TaskSchema = z.object({
 export type Task = z.infer<typeof TaskSchema>;
 
 // ---- Stream response (discriminated union) ----
-export const StreamResponseSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("task"), task: TaskSchema }),
-  z.object({ kind: z.literal("message"), message: MessageSchema }),
-  z.object({ kind: z.literal("status-update"), status: TaskStatusSchema }),
-  z.object({ kind: z.literal("artifact-update"), artifact: ArtifactSchema }),
+export const StreamResponseSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('task'), task: TaskSchema }),
+  z.object({ kind: z.literal('message'), message: MessageSchema }),
+  z.object({ kind: z.literal('status-update'), status: TaskStatusSchema }),
+  z.object({ kind: z.literal('artifact-update'), artifact: ArtifactSchema }),
 ]);
 export type StreamResponse = z.infer<typeof StreamResponseSchema>;
 ```
@@ -998,6 +1036,7 @@ git commit -m "feat(core): add A2A v1.0.0 Zod schemas + types"
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/helpers/exponential-backoff.ts`
 - Create: `tests/core/helpers/exponential-backoff.test.ts`
 
@@ -1006,30 +1045,30 @@ git commit -m "feat(core): add A2A v1.0.0 Zod schemas + types"
 Create `tests/core/helpers/exponential-backoff.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { computeBackoffMs } from "../../../src/core/helpers/exponential-backoff.js";
+import { describe, it, expect } from 'vitest';
+import { computeBackoffMs } from '../../../src/core/helpers/exponential-backoff.js';
 
-describe("computeBackoffMs", () => {
+describe('computeBackoffMs', () => {
   const opts = { initialMs: 500, multiplier: 2, jitterRatio: 0 };
 
-  it("computes exponentially with zero jitter", () => {
-    expect(computeBackoffMs(1, opts)).toBe(500);   // 500 * 2^0
-    expect(computeBackoffMs(2, opts)).toBe(1000);  // 500 * 2^1
-    expect(computeBackoffMs(3, opts)).toBe(2000);  // 500 * 2^2
+  it('computes exponentially with zero jitter', () => {
+    expect(computeBackoffMs(1, opts)).toBe(500); // 500 * 2^0
+    expect(computeBackoffMs(2, opts)).toBe(1000); // 500 * 2^1
+    expect(computeBackoffMs(3, opts)).toBe(2000); // 500 * 2^2
   });
 
-  it("adds jitter within ±ratio range", () => {
+  it('adds jitter within ±ratio range', () => {
     const optsWithJitter = { initialMs: 1000, multiplier: 2, jitterRatio: 0.2 };
     const rng = () => 0.5; // deterministic
     // base = 1000 * 2^(n-1); jitter factor = 1 + (2*0.5 - 1) * 0.2 = 1
     expect(computeBackoffMs(1, optsWithJitter, rng)).toBe(1000);
-    const rngLow = () => 0;  // factor = 1 - 0.2 = 0.8
+    const rngLow = () => 0; // factor = 1 - 0.2 = 0.8
     expect(computeBackoffMs(1, optsWithJitter, rngLow)).toBe(800);
     const rngHigh = () => 1; // factor = 1 + 0.2 = 1.2
     expect(computeBackoffMs(1, optsWithJitter, rngHigh)).toBe(1200);
   });
 
-  it("throws on attempt < 1", () => {
+  it('throws on attempt < 1', () => {
     expect(() => computeBackoffMs(0, opts)).toThrow();
   });
 });
@@ -1052,9 +1091,9 @@ export interface BackoffOptions {
 export function computeBackoffMs(
   attempt: number,
   opts: BackoffOptions,
-  rng: () => number = Math.random,
+  rng: () => number = Math.random
 ): number {
-  if (attempt < 1) throw new Error("attempt must be >= 1");
+  if (attempt < 1) throw new Error('attempt must be >= 1');
   const base = opts.initialMs * Math.pow(opts.multiplier, attempt - 1);
   const jitter = (2 * rng() - 1) * opts.jitterRatio;
   return Math.round(base * (1 + jitter));
@@ -1085,6 +1124,7 @@ git commit -m "feat(core): add computeBackoffMs helper"
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/plugin-interface.ts`
 - Create: `src/core/define-plugin.ts`
 - Create: `src/index.ts`
@@ -1095,28 +1135,28 @@ git commit -m "feat(core): add computeBackoffMs helper"
 Create `tests/core/define-plugin.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { z } from "zod";
-import { defineA2APlugin } from "../../src/core/define-plugin.js";
-import type { A2APluginInterface } from "../../src/core/plugin-interface.js";
+import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
+import { defineA2APlugin } from '../../src/core/define-plugin.js';
+import type { A2APluginInterface } from '../../src/core/plugin-interface.js';
 
-describe("defineA2APlugin", () => {
-  it("returns the input object unchanged and preserves typing", () => {
+describe('defineA2APlugin', () => {
+  it('returns the input object unchanged and preserves typing', () => {
     const schema = z.object({ foo: z.string() });
     const plugin: A2APluginInterface<z.infer<typeof schema>> = {
-      id: "test",
-      version: "0.0.1",
+      id: 'test',
+      version: '0.0.1',
       configSchema: schema,
       async initialize() {},
       async dispose() {},
       async *execute() {},
       metadata: () => ({
-        skill: { id: "test", name: "Test", description: "t" },
+        skill: { id: 'test', name: 'Test', description: 't' },
       }),
     };
     const defined = defineA2APlugin(plugin);
     expect(defined).toBe(plugin);
-    expect(defined.id).toBe("test");
+    expect(defined.id).toBe('test');
   });
 });
 ```
@@ -1129,9 +1169,9 @@ Expected: FAIL — module not found.
 - [ ] **Step 8.3: Implement `src/core/plugin-interface.ts`**
 
 ```ts
-import type { z } from "zod";
-import type { Message, StreamResponse } from "./a2a-types.js";
-import type { Logger } from "./logger.js";
+import type { z } from 'zod';
+import type { Message, StreamResponse } from './a2a-types.js';
+import type { Logger } from './logger.js';
 
 export interface A2APluginContext {
   logger: Logger;
@@ -1156,7 +1196,10 @@ export interface A2APluginInterface<TConfig = unknown> {
   initialize(config: TConfig): Promise<void>;
   dispose(): Promise<void>;
 
-  execute(message: Message, ctx: A2APluginContext): AsyncIterable<StreamResponse>;
+  execute(
+    message: Message,
+    ctx: A2APluginContext
+  ): AsyncIterable<StreamResponse>;
 
   metadata(): { skill: A2APluginSkill };
 }
@@ -1165,10 +1208,10 @@ export interface A2APluginInterface<TConfig = unknown> {
 - [ ] **Step 8.4: Implement `src/core/define-plugin.ts`**
 
 ```ts
-import type { A2APluginInterface } from "./plugin-interface.js";
+import type { A2APluginInterface } from './plugin-interface.js';
 
 export function defineA2APlugin<TConfig>(
-  def: A2APluginInterface<TConfig>,
+  def: A2APluginInterface<TConfig>
 ): A2APluginInterface<TConfig> {
   return def;
 }
@@ -1177,11 +1220,11 @@ export function defineA2APlugin<TConfig>(
 - [ ] **Step 8.5: Create initial `src/index.ts`**
 
 ```ts
-export * from "./core/a2a-types.js";
-export * from "./core/errors.js";
-export * from "./core/logger.js";
-export * from "./core/plugin-interface.js";
-export * from "./core/define-plugin.js";
+export * from './core/a2a-types.js';
+export * from './core/errors.js';
+export * from './core/logger.js';
+export * from './core/plugin-interface.js';
+export * from './core/define-plugin.js';
 ```
 
 - [ ] **Step 8.6: Run test to verify it passes**
@@ -1208,6 +1251,7 @@ git commit -m "feat(core): add A2APluginInterface + defineA2APlugin + public ind
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/registry.ts`
 - Create: `tests/core/registry.test.ts`
 
@@ -1216,60 +1260,63 @@ git commit -m "feat(core): add A2APluginInterface + defineA2APlugin + public ind
 Create `tests/core/registry.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { z } from "zod";
-import { PluginRegistry } from "../../src/core/registry.js";
-import type { A2APluginInterface } from "../../src/core/plugin-interface.js";
+import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
+import { PluginRegistry } from '../../src/core/registry.js';
+import type { A2APluginInterface } from '../../src/core/plugin-interface.js';
 
-function makePlugin(id: string, opts: { initSpy?: (c: unknown) => void } = {}): A2APluginInterface {
+function makePlugin(
+  id: string,
+  opts: { initSpy?: (c: unknown) => void } = {}
+): A2APluginInterface {
   return {
     id,
-    version: "0.0.1",
-    configSchema: z.object({ foo: z.string().default("bar") }),
+    version: '0.0.1',
+    configSchema: z.object({ foo: z.string().default('bar') }),
     async initialize(config) {
       opts.initSpy?.(config);
     },
     async dispose() {},
     async *execute() {},
-    metadata: () => ({ skill: { id, name: id, description: "" } }),
+    metadata: () => ({ skill: { id, name: id, description: '' } }),
   };
 }
 
-describe("PluginRegistry", () => {
-  it("register + get + list", () => {
+describe('PluginRegistry', () => {
+  it('register + get + list', () => {
     const reg = new PluginRegistry();
-    const p = makePlugin("gemini-cli");
+    const p = makePlugin('gemini-cli');
     reg.register(p);
-    expect(reg.get("gemini-cli")).toBe(p);
+    expect(reg.get('gemini-cli')).toBe(p);
     expect(reg.list()).toEqual([p]);
-    expect(reg.get("missing")).toBeUndefined();
+    expect(reg.get('missing')).toBeUndefined();
   });
 
-  it("throws on duplicate id", () => {
+  it('throws on duplicate id', () => {
     const reg = new PluginRegistry();
-    reg.register(makePlugin("a"));
-    expect(() => reg.register(makePlugin("a"))).toThrow(/duplicate/i);
+    reg.register(makePlugin('a'));
+    expect(() => reg.register(makePlugin('a'))).toThrow(/duplicate/i);
   });
 
-  it("initializeAll validates config via Zod and passes to plugin.initialize", async () => {
-    const reg = new PluginRegistry();
-    let seen: unknown;
-    reg.register(makePlugin("x", { initSpy: (c) => (seen = c) }));
-    await reg.initializeAll({ x: { foo: "hello" } });
-    expect(seen).toEqual({ foo: "hello" });
-  });
-
-  it("initializeAll applies schema defaults when keys missing", async () => {
+  it('initializeAll validates config via Zod and passes to plugin.initialize', async () => {
     const reg = new PluginRegistry();
     let seen: unknown;
-    reg.register(makePlugin("y", { initSpy: (c) => (seen = c) }));
+    reg.register(makePlugin('x', { initSpy: (c) => (seen = c) }));
+    await reg.initializeAll({ x: { foo: 'hello' } });
+    expect(seen).toEqual({ foo: 'hello' });
+  });
+
+  it('initializeAll applies schema defaults when keys missing', async () => {
+    const reg = new PluginRegistry();
+    let seen: unknown;
+    reg.register(makePlugin('y', { initSpy: (c) => (seen = c) }));
     await reg.initializeAll({});
-    expect(seen).toEqual({ foo: "bar" });
+    expect(seen).toEqual({ foo: 'bar' });
   });
 
-  it("initializeAll throws if config fails Zod validation", async () => {
+  it('initializeAll throws if config fails Zod validation', async () => {
     const reg = new PluginRegistry();
-    reg.register(makePlugin("z"));
+    reg.register(makePlugin('z'));
     await expect(reg.initializeAll({ z: { foo: 42 } })).rejects.toThrow();
   });
 
@@ -1277,17 +1324,17 @@ describe("PluginRegistry", () => {
     const reg = new PluginRegistry();
     const disposed: string[] = [];
     const p1: A2APluginInterface = {
-      ...makePlugin("p1"),
-      dispose: async () => void disposed.push("p1"),
+      ...makePlugin('p1'),
+      dispose: async () => void disposed.push('p1'),
     };
     const p2: A2APluginInterface = {
-      ...makePlugin("p2"),
-      dispose: async () => void disposed.push("p2"),
+      ...makePlugin('p2'),
+      dispose: async () => void disposed.push('p2'),
     };
     reg.register(p1);
     reg.register(p2);
     await reg.disposeAll();
-    expect(disposed).toEqual(["p1", "p2"]);
+    expect(disposed).toEqual(['p1', 'p2']);
   });
 });
 ```
@@ -1300,7 +1347,7 @@ Expected: FAIL — module not found.
 - [ ] **Step 9.3: Implement `src/core/registry.ts`**
 
 ```ts
-import type { A2APluginInterface } from "./plugin-interface.js";
+import type { A2APluginInterface } from './plugin-interface.js';
 
 export class PluginRegistry {
   private readonly plugins = new Map<string, A2APluginInterface>();
@@ -1344,12 +1391,12 @@ Expected: PASS — all 6 tests green.
 - [ ] **Step 9.5: Update `src/index.ts` to export registry**
 
 ```ts
-export * from "./core/a2a-types.js";
-export * from "./core/errors.js";
-export * from "./core/logger.js";
-export * from "./core/plugin-interface.js";
-export * from "./core/define-plugin.js";
-export * from "./core/registry.js";
+export * from './core/a2a-types.js';
+export * from './core/errors.js';
+export * from './core/logger.js';
+export * from './core/plugin-interface.js';
+export * from './core/define-plugin.js';
+export * from './core/registry.js';
 ```
 
 - [ ] **Step 9.6: Commit**
@@ -1371,6 +1418,7 @@ git commit -m "feat(core): add PluginRegistry with Zod-validated initialization"
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/task-store.ts`
 - Create: `tests/core/task-store.test.ts`
 
@@ -1379,84 +1427,86 @@ git commit -m "feat(core): add PluginRegistry with Zod-validated initialization"
 Create `tests/core/task-store.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { InMemoryTaskStore } from "../../src/core/task-store.js";
+import { describe, it, expect } from 'vitest';
+import { InMemoryTaskStore } from '../../src/core/task-store.js';
 
-describe("InMemoryTaskStore", () => {
-  it("create produces a UUID id and PENDING status", async () => {
+describe('InMemoryTaskStore', () => {
+  it('create produces a UUID id and PENDING status', async () => {
     const store = new InMemoryTaskStore();
     const task = await store.create({});
     expect(task.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(task.status.state).toBe("TASK_STATE_PENDING");
+    expect(task.status.state).toBe('TASK_STATE_PENDING');
   });
 
-  it("create preserves contextId", async () => {
+  it('create preserves contextId', async () => {
     const store = new InMemoryTaskStore();
-    const task = await store.create({ contextId: "ctx-1" });
-    expect(task.contextId).toBe("ctx-1");
+    const task = await store.create({ contextId: 'ctx-1' });
+    expect(task.contextId).toBe('ctx-1');
   });
 
-  it("get returns the stored task or undefined", async () => {
+  it('get returns the stored task or undefined', async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     expect(await store.get(t.id)).toEqual(t);
-    expect(await store.get("missing")).toBeUndefined();
+    expect(await store.get('missing')).toBeUndefined();
   });
 
-  it("update patches and returns new task", async () => {
+  it('update patches and returns new task', async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     const updated = await store.update(t.id, {
-      status: { state: "TASK_STATE_WORKING" },
+      status: { state: 'TASK_STATE_WORKING' },
     });
-    expect(updated.status.state).toBe("TASK_STATE_WORKING");
-    expect((await store.get(t.id))?.status.state).toBe("TASK_STATE_WORKING");
+    expect(updated.status.state).toBe('TASK_STATE_WORKING');
+    expect((await store.get(t.id))?.status.state).toBe('TASK_STATE_WORKING');
   });
 
-  it("update throws if task missing", async () => {
+  it('update throws if task missing', async () => {
     const store = new InMemoryTaskStore();
-    await expect(store.update("nope", { status: { state: "TASK_STATE_WORKING" } })).rejects.toThrow();
+    await expect(
+      store.update('nope', { status: { state: 'TASK_STATE_WORKING' } })
+    ).rejects.toThrow();
   });
 
-  it("appendArtifact accumulates artifacts", async () => {
+  it('appendArtifact accumulates artifacts', async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     await store.appendArtifact(t.id, {
-      artifactId: "a1",
-      parts: [{ kind: "text", text: "hello" }],
+      artifactId: 'a1',
+      parts: [{ kind: 'text', text: 'hello' }],
     });
     const got = await store.get(t.id);
     expect(got?.artifacts).toHaveLength(1);
-    expect(got?.artifacts?.[0].artifactId).toBe("a1");
+    expect(got?.artifacts?.[0].artifactId).toBe('a1');
   });
 
-  it("appendHistoryEntry accumulates status history", async () => {
+  it('appendHistoryEntry accumulates status history', async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
-    await store.appendHistoryEntry(t.id, { state: "TASK_STATE_WORKING" });
-    await store.appendHistoryEntry(t.id, { state: "TASK_STATE_COMPLETED" });
+    await store.appendHistoryEntry(t.id, { state: 'TASK_STATE_WORKING' });
+    await store.appendHistoryEntry(t.id, { state: 'TASK_STATE_COMPLETED' });
     const got = await store.get(t.id);
     expect(got?.history).toHaveLength(2);
-    expect(got?.history?.[1].state).toBe("TASK_STATE_COMPLETED");
+    expect(got?.history?.[1].state).toBe('TASK_STATE_COMPLETED');
   });
 
-  it("appendStreamChunk dispatches artifact-update to artifacts, status-update to history", async () => {
+  it('appendStreamChunk dispatches artifact-update to artifacts, status-update to history', async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     await store.appendStreamChunk(t.id, {
-      kind: "artifact-update",
-      artifact: { artifactId: "a1", parts: [{ kind: "text", text: "x" }] },
+      kind: 'artifact-update',
+      artifact: { artifactId: 'a1', parts: [{ kind: 'text', text: 'x' }] },
     });
     await store.appendStreamChunk(t.id, {
-      kind: "status-update",
-      status: { state: "TASK_STATE_WORKING" },
+      kind: 'status-update',
+      status: { state: 'TASK_STATE_WORKING' },
     });
     const got = await store.get(t.id);
     expect(got?.artifacts).toHaveLength(1);
     expect(got?.history).toHaveLength(1);
   });
 
-  it("delete removes the task", async () => {
+  it('delete removes the task', async () => {
     const store = new InMemoryTaskStore();
     const t = await store.create({});
     await store.delete(t.id);
@@ -1473,8 +1523,13 @@ Expected: FAIL — module not found.
 - [ ] **Step 10.3: Implement `src/core/task-store.ts`**
 
 ```ts
-import { randomUUID } from "node:crypto";
-import type { Artifact, StreamResponse, Task, TaskStatus } from "./a2a-types.js";
+import { randomUUID } from 'node:crypto';
+import type {
+  Artifact,
+  StreamResponse,
+  Task,
+  TaskStatus,
+} from './a2a-types.js';
 
 export interface TaskStore {
   create(init: { contextId?: string }): Promise<Task>;
@@ -1493,7 +1548,10 @@ export class InMemoryTaskStore implements TaskStore {
     const task: Task = {
       id: randomUUID(),
       ...(init.contextId !== undefined ? { contextId: init.contextId } : {}),
-      status: { state: "TASK_STATE_PENDING", timestamp: new Date().toISOString() },
+      status: {
+        state: 'TASK_STATE_PENDING',
+        timestamp: new Date().toISOString(),
+      },
     };
     this.store.set(task.id, task);
     return task;
@@ -1518,9 +1576,9 @@ export class InMemoryTaskStore implements TaskStore {
   }
 
   async appendStreamChunk(id: string, chunk: StreamResponse): Promise<void> {
-    if (chunk.kind === "artifact-update") {
+    if (chunk.kind === 'artifact-update') {
       await this.appendArtifact(id, chunk.artifact);
-    } else if (chunk.kind === "status-update") {
+    } else if (chunk.kind === 'status-update') {
       await this.appendHistoryEntry(id, chunk.status);
     }
     // task/message chunks are not persisted here
@@ -1562,6 +1620,7 @@ git commit -m "feat(core): add TaskStore interface + InMemoryTaskStore"
 > **PR:** → `feature/phase2__core-modules__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/helpers/subprocess.ts`
 - Create: `tests/core/helpers/subprocess.test.ts`
 - Create: `tests/fixtures/json-lines-echo.mjs`
@@ -1572,19 +1631,19 @@ git commit -m "feat(core): add TaskStore interface + InMemoryTaskStore"
 #!/usr/bin/env node
 // Reads one line from stdin; echoes N json-lines then exits.
 // Usage: json-lines-echo.mjs <lines> [exitCode]
-import { stdin, stdout, stderr, argv, exit } from "node:process";
+import { stdin, stdout, stderr, argv, exit } from 'node:process';
 
-const lines = parseInt(argv[2] ?? "1", 10);
-const exitCode = parseInt(argv[3] ?? "0", 10);
+const lines = parseInt(argv[2] ?? '1', 10);
+const exitCode = parseInt(argv[3] ?? '0', 10);
 const failMode = argv[4]; // "stderr"|undefined
 
-let buf = "";
-stdin.on("data", (c) => (buf += c));
-stdin.on("end", () => {
+let buf = '';
+stdin.on('data', (c) => (buf += c));
+stdin.on('end', () => {
   for (let i = 0; i < lines; i++) {
-    stdout.write(JSON.stringify({ index: i, input: buf.trim() }) + "\n");
+    stdout.write(JSON.stringify({ index: i, input: buf.trim() }) + '\n');
   }
-  if (failMode === "stderr") stderr.write("bad things\n");
+  if (failMode === 'stderr') stderr.write('bad things\n');
   exit(exitCode);
 });
 ```
@@ -1598,14 +1657,14 @@ Run: `chmod +x tests/fixtures/json-lines-echo.mjs`
 Create `tests/core/helpers/subprocess.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import { runJsonLinesSubprocess } from "../../../src/core/helpers/subprocess.js";
-import { SubprocessError } from "../../../src/core/errors.js";
+import { describe, it, expect } from 'vitest';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { runJsonLinesSubprocess } from '../../../src/core/helpers/subprocess.js';
+import { SubprocessError } from '../../../src/core/errors.js';
 
 const FIXTURE = fileURLToPath(
-  new URL("../../fixtures/json-lines-echo.mjs", import.meta.url),
+  new URL('../../fixtures/json-lines-echo.mjs', import.meta.url)
 );
 
 async function drain(it: AsyncIterable<unknown>): Promise<unknown[]> {
@@ -1614,40 +1673,40 @@ async function drain(it: AsyncIterable<unknown>): Promise<unknown[]> {
   return out;
 }
 
-describe("runJsonLinesSubprocess", () => {
-  it("yields parsed JSON lines in order", async () => {
+describe('runJsonLinesSubprocess', () => {
+  it('yields parsed JSON lines in order', async () => {
     const ctl = new AbortController();
     const lines = await drain(
       runJsonLinesSubprocess({
         cmd: process.execPath,
-        args: [FIXTURE, "3"],
+        args: [FIXTURE, '3'],
         abortSignal: ctl.signal,
-        stdin: "hello",
-      }),
+        stdin: 'hello',
+      })
     );
     expect(lines).toHaveLength(3);
     expect((lines[0] as { index: number }).index).toBe(0);
-    expect((lines[2] as { input: string }).input).toBe("hello");
+    expect((lines[2] as { input: string }).input).toBe('hello');
   });
 
-  it("throws SubprocessError on non-zero exit", async () => {
+  it('throws SubprocessError on non-zero exit', async () => {
     const ctl = new AbortController();
     const it = runJsonLinesSubprocess({
       cmd: process.execPath,
-      args: [FIXTURE, "1", "7", "stderr"],
+      args: [FIXTURE, '1', '7', 'stderr'],
       abortSignal: ctl.signal,
-      stdin: "x",
+      stdin: 'x',
     });
     await expect(drain(it)).rejects.toThrow(SubprocessError);
   });
 
-  it("aborts via AbortSignal (sends SIGTERM)", async () => {
+  it('aborts via AbortSignal (sends SIGTERM)', async () => {
     const ctl = new AbortController();
     const it = runJsonLinesSubprocess({
       cmd: process.execPath,
-      args: [FIXTURE, "1"],
+      args: [FIXTURE, '1'],
       abortSignal: ctl.signal,
-      stdin: "x",
+      stdin: 'x',
     });
     // Abort before stdin close would normally be consumed by kill
     queueMicrotask(() => ctl.abort());
@@ -1665,9 +1724,9 @@ Expected: FAIL — module not found.
 - [ ] **Step 11.5: Implement `src/core/helpers/subprocess.ts`**
 
 ```ts
-import { spawn } from "node:child_process";
-import { createInterface } from "node:readline";
-import { SubprocessError } from "../errors.js";
+import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
+import { SubprocessError } from '../errors.js';
 
 export interface JsonLinesSubprocessOpts {
   cmd: string;
@@ -1680,29 +1739,29 @@ export interface JsonLinesSubprocessOpts {
 }
 
 export async function* runJsonLinesSubprocess(
-  opts: JsonLinesSubprocessOpts,
+  opts: JsonLinesSubprocessOpts
 ): AsyncIterable<unknown> {
   const child = spawn(opts.cmd, opts.args, {
     cwd: opts.cwd,
     env: { ...process.env, ...(opts.env ?? {}) },
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 
-  let stderrBuf = "";
-  child.stderr.setEncoding("utf8");
-  child.stderr.on("data", (chunk: string) => (stderrBuf += chunk));
+  let stderrBuf = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk: string) => (stderrBuf += chunk));
 
   const gracefulKill = () => {
     if (child.exitCode !== null || child.killed) return;
-    child.kill("SIGTERM");
+    child.kill('SIGTERM');
     const grace = opts.sigkillGraceMs ?? 5000;
     setTimeout(() => {
-      if (child.exitCode === null && !child.killed) child.kill("SIGKILL");
+      if (child.exitCode === null && !child.killed) child.kill('SIGKILL');
     }, grace).unref();
   };
 
   const onAbort = () => gracefulKill();
-  opts.abortSignal.addEventListener("abort", onAbort, { once: true });
+  opts.abortSignal.addEventListener('abort', onAbort, { once: true });
 
   if (opts.stdin !== undefined) {
     child.stdin.end(opts.stdin);
@@ -1713,24 +1772,24 @@ export async function* runJsonLinesSubprocess(
   const rl = createInterface({ input: child.stdout });
 
   const exitPromise = new Promise<number>((resolve, reject) => {
-    child.once("error", reject);
-    child.once("exit", (code) => resolve(code ?? 0));
+    child.once('error', reject);
+    child.once('exit', (code) => resolve(code ?? 0));
   });
 
   try {
     for await (const line of rl) {
-      if (line.trim() === "") continue;
+      if (line.trim() === '') continue;
       yield JSON.parse(line);
     }
     const exitCode = await exitPromise;
     if (opts.abortSignal.aborted) {
-      throw new Error("aborted");
+      throw new Error('aborted');
     }
     if (exitCode !== 0) {
       throw new SubprocessError(exitCode, stderrBuf);
     }
   } finally {
-    opts.abortSignal.removeEventListener("abort", onAbort);
+    opts.abortSignal.removeEventListener('abort', onAbort);
     gracefulKill();
   }
 }
@@ -1766,10 +1825,10 @@ All Phase 3 tasks share the same `src/core/task-runner.ts` file. Each task adds 
 File: `tests/core/_helpers.ts`
 
 ```ts
-import { z } from "zod";
-import type { A2APluginInterface } from "../../src/core/plugin-interface.js";
-import type { Message, StreamResponse } from "../../src/core/a2a-types.js";
-import { ConsoleLogger, type Logger } from "../../src/core/logger.js";
+import { z } from 'zod';
+import type { A2APluginInterface } from '../../src/core/plugin-interface.js';
+import type { Message, StreamResponse } from '../../src/core/a2a-types.js';
+import { ConsoleLogger, type Logger } from '../../src/core/logger.js';
 
 export function silentLogger(): Logger {
   return {
@@ -1781,21 +1840,24 @@ export function silentLogger(): Logger {
 }
 
 export function mkMessage(): Message {
-  return { role: "ROLE_USER", parts: [{ kind: "text", text: "hi" }] };
+  return { role: 'ROLE_USER', parts: [{ kind: 'text', text: 'hi' }] };
 }
 
 export function mkPlugin(
   id: string,
-  exec: (msg: Message, ctx: { abortSignal: AbortSignal }) => AsyncIterable<StreamResponse>,
+  exec: (
+    msg: Message,
+    ctx: { abortSignal: AbortSignal }
+  ) => AsyncIterable<StreamResponse>
 ): A2APluginInterface {
   return {
     id,
-    version: "0.0.1",
+    version: '0.0.1',
     configSchema: z.object({}).passthrough(),
     async initialize() {},
     async dispose() {},
     execute: exec,
-    metadata: () => ({ skill: { id, name: id, description: "" } }),
+    metadata: () => ({ skill: { id, name: id, description: '' } }),
   };
 }
 
@@ -1816,6 +1878,7 @@ export { ConsoleLogger };
 > **PR:** → `feature/phase3__task-runner__base` (Draft)
 
 **Files:**
+
 - Create: `src/core/task-runner.ts` (initial)
 - Create: `tests/core/_helpers.ts` (from above)
 - Create: `tests/core/task-runner.test.ts`
@@ -1827,23 +1890,23 @@ export { ConsoleLogger };
 Create `tests/core/task-runner.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { PluginRegistry } from "../../src/core/registry.js";
-import { InMemoryTaskStore } from "../../src/core/task-store.js";
-import { TaskRunner } from "../../src/core/task-runner.js";
-import { drain, mkMessage, mkPlugin, silentLogger } from "./_helpers.js";
+import { describe, it, expect } from 'vitest';
+import { PluginRegistry } from '../../src/core/registry.js';
+import { InMemoryTaskStore } from '../../src/core/task-store.js';
+import { TaskRunner } from '../../src/core/task-runner.js';
+import { drain, mkMessage, mkPlugin, silentLogger } from './_helpers.js';
 
-describe("TaskRunner — happy path", () => {
-  it("1 attempt success yields task → WORKING → chunks → COMPLETED", async () => {
+describe('TaskRunner — happy path', () => {
+  it('1 attempt success yields task → WORKING → chunks → COMPLETED', async () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      mkPlugin("p", async function* () {
+      mkPlugin('p', async function* () {
         yield {
-          kind: "artifact-update",
-          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "ok" }] },
+          kind: 'artifact-update',
+          artifact: { artifactId: 'a1', parts: [{ kind: 'text', text: 'ok' }] },
         };
-      }),
+      })
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -1853,14 +1916,21 @@ describe("TaskRunner — happy path", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out = await drain(runner.run("p", mkMessage(), { abortSignal: ctl.signal }));
+    const out = await drain(
+      runner.run('p', mkMessage(), { abortSignal: ctl.signal })
+    );
 
     const kinds = out.map((c) => c.kind);
-    expect(kinds).toEqual(["task", "status-update", "artifact-update", "status-update"]);
+    expect(kinds).toEqual([
+      'task',
+      'status-update',
+      'artifact-update',
+      'status-update',
+    ]);
     const firstStatus = out[1] as { status: { state: string } };
-    expect(firstStatus.status.state).toBe("TASK_STATE_WORKING");
+    expect(firstStatus.status.state).toBe('TASK_STATE_WORKING');
     const lastStatus = out[3] as { status: { state: string } };
-    expect(lastStatus.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(lastStatus.status.state).toBe('TASK_STATE_COMPLETED');
   });
 });
 ```
@@ -1873,13 +1943,13 @@ Expected: FAIL — module not found.
 - [ ] **Step 12.4: Implement minimal `src/core/task-runner.ts`**
 
 ```ts
-import type { Message, StreamResponse, TaskStatus } from "./a2a-types.js";
-import type { A2APluginContext } from "./plugin-interface.js";
-import type { PluginRegistry } from "./registry.js";
-import type { TaskStore } from "./task-store.js";
-import type { Logger } from "./logger.js";
-import { NonRetriableError, serializeError } from "./errors.js";
-import { computeBackoffMs } from "./helpers/exponential-backoff.js";
+import type { Message, StreamResponse, TaskStatus } from './a2a-types.js';
+import type { A2APluginContext } from './plugin-interface.js';
+import type { PluginRegistry } from './registry.js';
+import type { TaskStore } from './task-store.js';
+import type { Logger } from './logger.js';
+import { NonRetriableError, serializeError } from './errors.js';
+import { computeBackoffMs } from './helpers/exponential-backoff.js';
 
 export interface TaskRunnerOptions {
   maxAttempts: number;
@@ -1893,13 +1963,13 @@ export class TaskRunner {
   constructor(
     private readonly registry: PluginRegistry,
     private readonly taskStore: TaskStore,
-    private readonly options: TaskRunnerOptions,
+    private readonly options: TaskRunnerOptions
   ) {}
 
   async *run(
     pluginId: string,
     message: Message,
-    opts: { abortSignal: AbortSignal; contextId?: string },
+    opts: { abortSignal: AbortSignal; contextId?: string }
   ): AsyncIterable<StreamResponse> {
     const plugin = this.registry.get(pluginId);
     if (!plugin) {
@@ -1910,7 +1980,7 @@ export class TaskRunner {
     const task = await this.taskStore.create({
       ...(opts.contextId !== undefined ? { contextId: opts.contextId } : {}),
     });
-    yield { kind: "task", task };
+    yield { kind: 'task', task };
 
     const ctx: A2APluginContext = {
       logger: this.options.logger,
@@ -1920,12 +1990,12 @@ export class TaskRunner {
     };
 
     const workingStatus: TaskStatus = {
-      state: "TASK_STATE_WORKING",
+      state: 'TASK_STATE_WORKING',
       timestamp: new Date().toISOString(),
     };
     await this.taskStore.update(task.id, { status: workingStatus });
     await this.taskStore.appendHistoryEntry(task.id, workingStatus);
-    yield { kind: "status-update", status: workingStatus };
+    yield { kind: 'status-update', status: workingStatus };
 
     for await (const chunk of plugin.execute(message, ctx)) {
       yield chunk;
@@ -1933,12 +2003,12 @@ export class TaskRunner {
     }
 
     const completedStatus: TaskStatus = {
-      state: "TASK_STATE_COMPLETED",
+      state: 'TASK_STATE_COMPLETED',
       timestamp: new Date().toISOString(),
     };
     await this.taskStore.update(task.id, { status: completedStatus });
     await this.taskStore.appendHistoryEntry(task.id, completedStatus);
-    yield { kind: "status-update", status: completedStatus };
+    yield { kind: 'status-update', status: completedStatus };
   }
 }
 ```
@@ -1973,20 +2043,20 @@ git commit -m "feat(core): add TaskRunner happy path (1-attempt success)"
 Append inside the existing file:
 
 ```ts
-describe("TaskRunner — retry before first yield", () => {
-  it("retries on throw before first yield, succeeds on 2nd attempt, emits COMPLETED", async () => {
+describe('TaskRunner — retry before first yield', () => {
+  it('retries on throw before first yield, succeeds on 2nd attempt, emits COMPLETED', async () => {
     let attempts = 0;
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      mkPlugin("retry-then-ok", async function* () {
+      mkPlugin('retry-then-ok', async function* () {
         attempts++;
-        if (attempts === 1) throw new Error("transient");
+        if (attempts === 1) throw new Error('transient');
         yield {
-          kind: "artifact-update",
-          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "ok" }] },
+          kind: 'artifact-update',
+          artifact: { artifactId: 'a1', parts: [{ kind: 'text', text: 'ok' }] },
         };
-      }),
+      })
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -1996,11 +2066,16 @@ describe("TaskRunner — retry before first yield", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out = await drain(runner.run("retry-then-ok", mkMessage(), { abortSignal: ctl.signal }));
+    const out = await drain(
+      runner.run('retry-then-ok', mkMessage(), { abortSignal: ctl.signal })
+    );
     expect(attempts).toBe(2);
-    const lastStatus = out.at(-1) as { kind: "status-update"; status: { state: string } };
-    expect(lastStatus.kind).toBe("status-update");
-    expect(lastStatus.status.state).toBe("TASK_STATE_COMPLETED");
+    const lastStatus = out.at(-1) as {
+      kind: 'status-update';
+      status: { state: string };
+    };
+    expect(lastStatus.kind).toBe('status-update');
+    expect(lastStatus.status.state).toBe('TASK_STATE_COMPLETED');
   });
 });
 ```
@@ -2128,18 +2203,18 @@ git commit -m "feat(core): TaskRunner retries on pre-yield failures"
 Append to `tests/core/task-runner.test.ts`:
 
 ```ts
-describe("TaskRunner — all attempts fail", () => {
-  it("after maxAttempts fails, emits FAILED with error in status.message", async () => {
+describe('TaskRunner — all attempts fail', () => {
+  it('after maxAttempts fails, emits FAILED with error in status.message', async () => {
     let attempts = 0;
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      mkPlugin("always-fail", async function* () {
+      mkPlugin('always-fail', async function* () {
         attempts++;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const _: never = undefined as never;
         throw new Error(`boom-${attempts}`);
-      }),
+      })
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -2149,11 +2224,16 @@ describe("TaskRunner — all attempts fail", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out = await drain(runner.run("always-fail", mkMessage(), { abortSignal: ctl.signal }));
+    const out = await drain(
+      runner.run('always-fail', mkMessage(), { abortSignal: ctl.signal })
+    );
     expect(attempts).toBe(3);
 
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
-    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    const last = out.at(-1) as {
+      kind: 'status-update';
+      status: { state: string; message?: string };
+    };
+    expect(last.status.state).toBe('TASK_STATE_FAILED');
     expect(last.status.message).toMatch(/boom-3/);
   });
 });
@@ -2187,15 +2267,15 @@ git commit -m "test(core): add 3-attempts-fail → FAILED test for TaskRunner"
 Append:
 
 ```ts
-describe("TaskRunner — cancellation before start", () => {
-  it("if abortSignal is already aborted, emits CANCELED without calling plugin", async () => {
+describe('TaskRunner — cancellation before start', () => {
+  it('if abortSignal is already aborted, emits CANCELED without calling plugin', async () => {
     let calls = 0;
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      mkPlugin("never", async function* () {
+      mkPlugin('never', async function* () {
         calls++;
-      }),
+      })
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -2206,10 +2286,15 @@ describe("TaskRunner — cancellation before start", () => {
     });
     const ctl = new AbortController();
     ctl.abort();
-    const out = await drain(runner.run("never", mkMessage(), { abortSignal: ctl.signal }));
+    const out = await drain(
+      runner.run('never', mkMessage(), { abortSignal: ctl.signal })
+    );
     expect(calls).toBe(0);
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
-    expect(last.status.state).toBe("TASK_STATE_CANCELED");
+    const last = out.at(-1) as {
+      kind: 'status-update';
+      status: { state: string };
+    };
+    expect(last.status.state).toBe('TASK_STATE_CANCELED');
   });
 });
 ```
@@ -2282,28 +2367,38 @@ git commit -m "feat(core): TaskRunner emits CANCELED when abort precedes execute
 Append:
 
 ```ts
-describe("TaskRunner — cancellation mid-stream", () => {
-  it("when abort fires while plugin is yielding, run terminates with CANCELED", async () => {
+describe('TaskRunner — cancellation mid-stream', () => {
+  it('when abort fires while plugin is yielding, run terminates with CANCELED', async () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     const ctl = new AbortController();
     registry.register(
-      mkPlugin("slow", async function* (_m, ctx) {
+      mkPlugin('slow', async function* (_m, ctx) {
         yield {
-          kind: "artifact-update",
-          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "part1" }] },
+          kind: 'artifact-update',
+          artifact: {
+            artifactId: 'a1',
+            parts: [{ kind: 'text', text: 'part1' }],
+          },
         };
         // Simulate work that respects abort
         await new Promise<void>((resolve, reject) => {
-          if (ctx.abortSignal.aborted) return reject(new Error("aborted"));
-          ctx.abortSignal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+          if (ctx.abortSignal.aborted) return reject(new Error('aborted'));
+          ctx.abortSignal.addEventListener(
+            'abort',
+            () => reject(new Error('aborted')),
+            { once: true }
+          );
           setTimeout(resolve, 500);
         });
         yield {
-          kind: "artifact-update",
-          artifact: { artifactId: "a2", parts: [{ kind: "text", text: "part2" }] },
+          kind: 'artifact-update',
+          artifact: {
+            artifactId: 'a2',
+            parts: [{ kind: 'text', text: 'part2' }],
+          },
         };
-      }),
+      })
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -2314,9 +2409,14 @@ describe("TaskRunner — cancellation mid-stream", () => {
     });
 
     queueMicrotask(() => ctl.abort());
-    const out = await drain(runner.run("slow", mkMessage(), { abortSignal: ctl.signal }));
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string } };
-    expect(last.status.state).toBe("TASK_STATE_CANCELED");
+    const out = await drain(
+      runner.run('slow', mkMessage(), { abortSignal: ctl.signal })
+    );
+    const last = out.at(-1) as {
+      kind: 'status-update';
+      status: { state: string };
+    };
+    expect(last.status.state).toBe('TASK_STATE_CANCELED');
   });
 });
 ```
@@ -2390,20 +2490,23 @@ git commit -m "feat(core): TaskRunner emits CANCELED on mid-stream abort"
 Append:
 
 ```ts
-describe("TaskRunner — post-yield error does not retry", () => {
-  it("failure after first yield triggers FAILED without retry", async () => {
+describe('TaskRunner — post-yield error does not retry', () => {
+  it('failure after first yield triggers FAILED without retry', async () => {
     let attempts = 0;
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      mkPlugin("yield-then-fail", async function* () {
+      mkPlugin('yield-then-fail', async function* () {
         attempts++;
         yield {
-          kind: "artifact-update",
-          artifact: { artifactId: "a1", parts: [{ kind: "text", text: "partial" }] },
+          kind: 'artifact-update',
+          artifact: {
+            artifactId: 'a1',
+            parts: [{ kind: 'text', text: 'partial' }],
+          },
         };
-        throw new Error("after-yield-boom");
-      }),
+        throw new Error('after-yield-boom');
+      })
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -2413,10 +2516,15 @@ describe("TaskRunner — post-yield error does not retry", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out = await drain(runner.run("yield-then-fail", mkMessage(), { abortSignal: ctl.signal }));
+    const out = await drain(
+      runner.run('yield-then-fail', mkMessage(), { abortSignal: ctl.signal })
+    );
     expect(attempts).toBe(1); // no retry
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
-    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    const last = out.at(-1) as {
+      kind: 'status-update';
+      status: { state: string; message?: string };
+    };
+    expect(last.status.state).toBe('TASK_STATE_FAILED');
     expect(last.status.message).toMatch(/after-yield-boom/);
   });
 });
@@ -2450,16 +2558,16 @@ git commit -m "test(core): pin post-yield-error-no-retry semantics"
 Append:
 
 ```ts
-describe("TaskRunner — non-retriable errors", () => {
-  it("emits FAILED without retry when plugin throws NonRetriableError", async () => {
+describe('TaskRunner — non-retriable errors', () => {
+  it('emits FAILED without retry when plugin throws NonRetriableError', async () => {
     let attempts = 0;
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     registry.register(
-      mkPlugin("permanent", async function* () {
+      mkPlugin('permanent', async function* () {
         attempts++;
-        throw new NonRetriableError("bad-config");
-      }),
+        throw new NonRetriableError('bad-config');
+      })
     );
     const runner = new TaskRunner(registry, store, {
       maxAttempts: 3,
@@ -2469,14 +2577,19 @@ describe("TaskRunner — non-retriable errors", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out = await drain(runner.run("permanent", mkMessage(), { abortSignal: ctl.signal }));
+    const out = await drain(
+      runner.run('permanent', mkMessage(), { abortSignal: ctl.signal })
+    );
     expect(attempts).toBe(1);
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
-    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    const last = out.at(-1) as {
+      kind: 'status-update';
+      status: { state: string; message?: string };
+    };
+    expect(last.status.state).toBe('TASK_STATE_FAILED');
     expect(last.status.message).toMatch(/bad-config/);
   });
 
-  it("missing plugin id yields { kind: task } then FAILED (not an uncaught throw)", async () => {
+  it('missing plugin id yields { kind: task } then FAILED (not an uncaught throw)', async () => {
     const registry = new PluginRegistry();
     const store = new InMemoryTaskStore();
     const runner = new TaskRunner(registry, store, {
@@ -2487,11 +2600,16 @@ describe("TaskRunner — non-retriable errors", () => {
       logger: silentLogger(),
     });
     const ctl = new AbortController();
-    const out = await drain(runner.run("nope", mkMessage(), { abortSignal: ctl.signal }));
+    const out = await drain(
+      runner.run('nope', mkMessage(), { abortSignal: ctl.signal })
+    );
     const kinds = out.map((c) => c.kind);
-    expect(kinds[0]).toBe("task");
-    const last = out.at(-1) as { kind: "status-update"; status: { state: string; message?: string } };
-    expect(last.status.state).toBe("TASK_STATE_FAILED");
+    expect(kinds[0]).toBe('task');
+    const last = out.at(-1) as {
+      kind: 'status-update';
+      status: { state: string; message?: string };
+    };
+    expect(last.status.state).toBe('TASK_STATE_FAILED');
     expect(last.status.message).toMatch(/plugin not found/i);
   });
 });
@@ -2500,7 +2618,7 @@ describe("TaskRunner — non-retriable errors", () => {
 Also add this import at the top of the test file:
 
 ```ts
-import { NonRetriableError } from "../../src/core/errors.js";
+import { NonRetriableError } from '../../src/core/errors.js';
 ```
 
 - [ ] **Step 18.2: Run tests — confirm failures**
@@ -2628,14 +2746,14 @@ Expected: ALL TaskRunner tests PASS (happy, retry-then-ok, 3-fails-FAILED, abort
 - [ ] **Step 18.5: Update `src/index.ts` to export new symbols**
 
 ```ts
-export * from "./core/a2a-types.js";
-export * from "./core/errors.js";
-export * from "./core/logger.js";
-export * from "./core/plugin-interface.js";
-export * from "./core/define-plugin.js";
-export * from "./core/registry.js";
-export * from "./core/task-store.js";
-export * from "./core/task-runner.js";
+export * from './core/a2a-types.js';
+export * from './core/errors.js';
+export * from './core/logger.js';
+export * from './core/plugin-interface.js';
+export * from './core/define-plugin.js';
+export * from './core/registry.js';
+export * from './core/task-store.js';
+export * from './core/task-runner.js';
 ```
 
 - [ ] **Step 18.6: Typecheck + full test run**
@@ -2685,37 +2803,37 @@ git commit -m "feat(core): TaskRunner handles NonRetriableError and missing plug
 Create `tests/core/config-loader.test.ts`:
 
 ```ts
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { fileURLToPath } from "node:url";
-import { loadConfig } from "../../src/core/config-loader.js";
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { fileURLToPath } from 'node:url';
+import { loadConfig } from '../../src/core/config-loader.js';
 
 const FIXTURE = fileURLToPath(
-  new URL("../fixtures/config.test.json", import.meta.url),
+  new URL('../fixtures/config.test.json', import.meta.url)
 );
 
-describe("loadConfig", () => {
+describe('loadConfig', () => {
   const original = process.env.FAKE_GEMINI_API_KEY;
   beforeEach(() => {
-    process.env.FAKE_GEMINI_API_KEY = "secret-123";
+    process.env.FAKE_GEMINI_API_KEY = 'secret-123';
   });
   afterEach(() => {
     if (original === undefined) delete process.env.FAKE_GEMINI_API_KEY;
     else process.env.FAKE_GEMINI_API_KEY = original;
   });
 
-  it("reads JSON and resolves ${env:VAR} placeholders", async () => {
+  it('reads JSON and resolves ${env:VAR} placeholders', async () => {
     const cfg = await loadConfig(FIXTURE);
-    expect(cfg.plugins["gemini-cli"].apiKey).toBe("secret-123");
-    expect(cfg.plugins["gemini-cli"].model).toBe("gemini-2.5-pro");
+    expect(cfg.plugins['gemini-cli'].apiKey).toBe('secret-123');
+    expect(cfg.plugins['gemini-cli'].model).toBe('gemini-2.5-pro');
   });
 
-  it("throws when ${env:VAR} is not set", async () => {
+  it('throws when ${env:VAR} is not set', async () => {
     delete process.env.FAKE_GEMINI_API_KEY;
     await expect(loadConfig(FIXTURE)).rejects.toThrow(/FAKE_GEMINI_API_KEY/);
   });
 
-  it("returns an empty plugins map for a missing file", async () => {
-    const cfg = await loadConfig("/tmp/does-not-exist-opencode-a2a.json");
+  it('returns an empty plugins map for a missing file', async () => {
+    const cfg = await loadConfig('/tmp/does-not-exist-opencode-a2a.json');
     expect(cfg.plugins).toEqual({});
   });
 });
@@ -2729,8 +2847,8 @@ Expected: FAIL — module not found.
 - [ ] **Step 19.4: Implement `src/core/config-loader.ts`**
 
 ```ts
-import { readFile } from "node:fs/promises";
-import { z } from "zod";
+import { readFile } from 'node:fs/promises';
+import { z } from 'zod';
 
 export const A2AConfigSchema = z.object({
   plugins: z.record(z.record(z.unknown())).default({}),
@@ -2743,9 +2861,9 @@ const ENV_PLACEHOLDER = /^\$\{env:([A-Z_][A-Z0-9_]*)\}$/;
 export async function loadConfig(path: string): Promise<A2AConfig> {
   let raw: string;
   try {
-    raw = await readFile(path, "utf8");
+    raw = await readFile(path, 'utf8');
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return A2AConfigSchema.parse({});
     }
     throw err;
@@ -2756,7 +2874,7 @@ export async function loadConfig(path: string): Promise<A2AConfig> {
 }
 
 function resolveEnv(value: unknown): unknown {
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const m = ENV_PLACEHOLDER.exec(value);
     if (!m) return value;
     const name = m[1]!;
@@ -2765,7 +2883,7 @@ function resolveEnv(value: unknown): unknown {
     return v;
   }
   if (Array.isArray(value)) return value.map(resolveEnv);
-  if (value && typeof value === "object") {
+  if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       out[k] = resolveEnv(v);
@@ -2784,8 +2902,9 @@ Expected: PASS.
 - [ ] **Step 19.6: Update `src/index.ts`**
 
 Append:
+
 ```ts
-export * from "./core/config-loader.js";
+export * from './core/config-loader.js';
 ```
 
 - [ ] **Step 19.7: Commit**
@@ -2807,6 +2926,7 @@ git commit -m "feat(core): add loadConfig with env placeholder resolution"
 > **PR:** → `feature/phase4__config-and-plugin__base` (Draft)
 
 **Files:**
+
 - Create: `src/plugins/gemini-cli-plugin.ts`
 - Create: `tests/plugins/gemini-cli-plugin.test.ts`
 
@@ -2817,33 +2937,36 @@ This task covers initialization + metadata only; execution (which spawns a subpr
 Create `tests/plugins/gemini-cli-plugin.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { GeminiCliPlugin, GeminiConfigSchema } from "../../src/plugins/gemini-cli-plugin.js";
+import { describe, it, expect } from 'vitest';
+import {
+  GeminiCliPlugin,
+  GeminiConfigSchema,
+} from '../../src/plugins/gemini-cli-plugin.js';
 
-describe("GeminiCliPlugin — config + metadata", () => {
-  it("has the expected id/version", () => {
+describe('GeminiCliPlugin — config + metadata', () => {
+  it('has the expected id/version', () => {
     const p = new GeminiCliPlugin();
-    expect(p.id).toBe("gemini-cli");
+    expect(p.id).toBe('gemini-cli');
     expect(p.version).toMatch(/^0\.\d+\.\d+$/);
   });
 
-  it("config defaults: cliPath=gemini, model=gemini-2.5-pro", () => {
+  it('config defaults: cliPath=gemini, model=gemini-2.5-pro', () => {
     const parsed = GeminiConfigSchema.parse({});
-    expect(parsed.cliPath).toBe("gemini");
-    expect(parsed.model).toBe("gemini-2.5-pro");
+    expect(parsed.cliPath).toBe('gemini');
+    expect(parsed.model).toBe('gemini-2.5-pro');
     expect(parsed.apiKey).toBeUndefined();
   });
 
-  it("metadata exposes skill with tags", () => {
+  it('metadata exposes skill with tags', () => {
     const p = new GeminiCliPlugin();
     const { skill } = p.metadata();
-    expect(skill.id).toBe("gemini-cli");
-    expect(skill.tags).toContain("code");
+    expect(skill.id).toBe('gemini-cli');
+    expect(skill.tags).toContain('code');
   });
 
-  it("initialize accepts validated config without throwing", async () => {
+  it('initialize accepts validated config without throwing', async () => {
     const p = new GeminiCliPlugin();
-    const cfg = GeminiConfigSchema.parse({ cliPath: "/bin/echo", model: "x" });
+    const cfg = GeminiConfigSchema.parse({ cliPath: '/bin/echo', model: 'x' });
     await expect(p.initialize(cfg)).resolves.toBeUndefined();
   });
 });
@@ -2857,23 +2980,26 @@ Expected: FAIL — module not found.
 - [ ] **Step 20.3: Implement `src/plugins/gemini-cli-plugin.ts`**
 
 ```ts
-import { z } from "zod";
-import type { A2APluginContext, A2APluginInterface } from "../core/plugin-interface.js";
-import type { Message, StreamResponse } from "../core/a2a-types.js";
-import { NonRetriableError } from "../core/errors.js";
-import { runJsonLinesSubprocess } from "../core/helpers/subprocess.js";
+import { z } from 'zod';
+import type {
+  A2APluginContext,
+  A2APluginInterface,
+} from '../core/plugin-interface.js';
+import type { Message, StreamResponse } from '../core/a2a-types.js';
+import { NonRetriableError } from '../core/errors.js';
+import { runJsonLinesSubprocess } from '../core/helpers/subprocess.js';
 
 export const GeminiConfigSchema = z.object({
-  cliPath: z.string().default("gemini"),
-  model: z.string().default("gemini-2.5-pro"),
+  cliPath: z.string().default('gemini'),
+  model: z.string().default('gemini-2.5-pro'),
   workingDir: z.string().optional(),
   apiKey: z.string().optional(),
 });
 export type GeminiConfig = z.infer<typeof GeminiConfigSchema>;
 
 export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
-  readonly id = "gemini-cli";
-  readonly version = "0.1.0";
+  readonly id = 'gemini-cli';
+  readonly version = '0.1.0';
   readonly configSchema = GeminiConfigSchema;
 
   private config: GeminiConfig | null = null;
@@ -2888,10 +3014,10 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 
   async *execute(
     message: Message,
-    ctx: A2APluginContext,
+    ctx: A2APluginContext
   ): AsyncIterable<StreamResponse> {
     if (!this.config) {
-      throw new NonRetriableError("GeminiCliPlugin not initialized");
+      throw new NonRetriableError('GeminiCliPlugin not initialized');
     }
     const prompt = messageToPrompt(message);
 
@@ -2900,8 +3026,10 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 
     const proc = runJsonLinesSubprocess({
       cmd: this.config.cliPath,
-      args: ["--json", "--model", this.config.model, "-"],
-      ...(this.config.workingDir !== undefined ? { cwd: this.config.workingDir } : {}),
+      args: ['--json', '--model', this.config.model, '-'],
+      ...(this.config.workingDir !== undefined
+        ? { cwd: this.config.workingDir }
+        : {}),
       env,
       abortSignal: ctx.abortSignal,
       stdin: prompt,
@@ -2916,11 +3044,11 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
   metadata() {
     return {
       skill: {
-        id: "gemini-cli",
-        name: "Gemini CLI",
-        description: "Delegates to Google Gemini CLI",
-        tags: ["code", "chat", "search"],
-        examples: ["Generate a React component", "Summarize this file"],
+        id: 'gemini-cli',
+        name: 'Gemini CLI',
+        description: 'Delegates to Google Gemini CLI',
+        tags: ['code', 'chat', 'search'],
+        examples: ['Generate a React component', 'Summarize this file'],
       },
     };
   }
@@ -2928,31 +3056,31 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 
 function messageToPrompt(m: Message): string {
   return m.parts
-    .map((p) => (p.kind === "text" ? p.text : JSON.stringify(p)))
-    .join("\n");
+    .map((p) => (p.kind === 'text' ? p.text : JSON.stringify(p)))
+    .join('\n');
 }
 
 type GeminiEvent =
-  | { type: "text"; text: string }
-  | { type: "thinking"; text: string }
-  | { type: "error"; message: string }
+  | { type: 'text'; text: string }
+  | { type: 'thinking'; text: string }
+  | { type: 'error'; message: string }
   | { type: string; [k: string]: unknown };
 
 function parseGeminiEvent(raw: unknown): StreamResponse | null {
-  if (typeof raw !== "object" || raw === null) return null;
+  if (typeof raw !== 'object' || raw === null) return null;
   const ev = raw as GeminiEvent;
   switch (ev.type) {
-    case "text":
+    case 'text':
       return {
-        kind: "artifact-update",
+        kind: 'artifact-update',
         artifact: {
-          artifactId: "gemini-out",
-          parts: [{ kind: "text", text: ev.text }],
+          artifactId: 'gemini-out',
+          parts: [{ kind: 'text', text: ev.text }],
         },
       };
-    case "thinking":
+    case 'thinking':
       return null; // headless principle: do not leak internal reasoning
-    case "error":
+    case 'error':
       throw new Error(`gemini: ${ev.message}`);
     default:
       return null;
@@ -2984,6 +3112,7 @@ git commit -m "feat(plugins): add GeminiCliPlugin (config + metadata + execute s
 > **PR:** → `feature/phase4__config-and-plugin__base` (Draft)
 
 **Files:**
+
 - Create: `tests/fixtures/fake-gemini-cli.mjs`
 - Create: `tests/integration/gemini-cli-plugin.test.ts`
 
@@ -2994,14 +3123,14 @@ git commit -m "feat(plugins): add GeminiCliPlugin (config + metadata + execute s
 // Minimal Gemini-style JSON-Lines emitter for integration tests.
 // Reads prompt from stdin, emits a "text" event echoing the prompt,
 // plus a "thinking" event (to exercise the filter), then exits 0.
-import { stdin, stdout, exit } from "node:process";
+import { stdin, stdout, exit } from 'node:process';
 
-let buf = "";
-stdin.on("data", (c) => (buf += c));
-stdin.on("end", () => {
-  stdout.write(JSON.stringify({ type: "thinking", text: "pondering" }) + "\n");
+let buf = '';
+stdin.on('data', (c) => (buf += c));
+stdin.on('end', () => {
+  stdout.write(JSON.stringify({ type: 'thinking', text: 'pondering' }) + '\n');
   stdout.write(
-    JSON.stringify({ type: "text", text: `echo: ${buf.trim()}` }) + "\n",
+    JSON.stringify({ type: 'text', text: `echo: ${buf.trim()}` }) + '\n'
   );
   exit(0);
 });
@@ -3016,22 +3145,25 @@ Run: `chmod +x tests/fixtures/fake-gemini-cli.mjs`
 Create `tests/integration/gemini-cli-plugin.test.ts`:
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { fileURLToPath } from "node:url";
-import { GeminiCliPlugin, GeminiConfigSchema } from "../../src/plugins/gemini-cli-plugin.js";
-import { silentLogger, drain, mkMessage } from "../core/_helpers.js";
-import type { StreamResponse } from "../../src/core/a2a-types.js";
+import { describe, it, expect } from 'vitest';
+import { fileURLToPath } from 'node:url';
+import {
+  GeminiCliPlugin,
+  GeminiConfigSchema,
+} from '../../src/plugins/gemini-cli-plugin.js';
+import { silentLogger, drain, mkMessage } from '../core/_helpers.js';
+import type { StreamResponse } from '../../src/core/a2a-types.js';
 
 const FAKE_CLI = fileURLToPath(
-  new URL("../fixtures/fake-gemini-cli.mjs", import.meta.url),
+  new URL('../fixtures/fake-gemini-cli.mjs', import.meta.url)
 );
 
-describe("GeminiCliPlugin (integration)", () => {
-  it("executes fake CLI and yields text as artifact-update, drops thinking", async () => {
+describe('GeminiCliPlugin (integration)', () => {
+  it('executes fake CLI and yields text as artifact-update, drops thinking', async () => {
     const plugin = new GeminiCliPlugin();
     const cfg = GeminiConfigSchema.parse({
       cliPath: process.execPath, // node binary
-      model: "fake-model",
+      model: 'fake-model',
     });
     await plugin.initialize(cfg);
 
@@ -3040,23 +3172,25 @@ describe("GeminiCliPlugin (integration)", () => {
     // by re-initializing with a shell wrapper. But the plugin spawns `cmd args`,
     // so to run a script we set cliPath to node and inject the script via args.
     // To keep the plugin unchanged, we'll use cliPath=fake-cli-script directly.
-    await plugin.initialize(GeminiConfigSchema.parse({ cliPath: FAKE_CLI, model: "fake-model" }));
+    await plugin.initialize(
+      GeminiConfigSchema.parse({ cliPath: FAKE_CLI, model: 'fake-model' })
+    );
 
     const ctl = new AbortController();
     const out = (await drain(
       plugin.execute(mkMessage(), {
         logger: silentLogger(),
         abortSignal: ctl.signal,
-        taskId: "t-1",
-      }),
+        taskId: 't-1',
+      })
     )) as StreamResponse[];
 
     expect(out).toHaveLength(1);
-    expect(out[0].kind).toBe("artifact-update");
-    if (out[0].kind === "artifact-update") {
+    expect(out[0].kind).toBe('artifact-update');
+    if (out[0].kind === 'artifact-update') {
       const part = out[0].artifact.parts[0];
-      expect(part.kind).toBe("text");
-      if (part.kind === "text") {
+      expect(part.kind).toBe('text');
+      if (part.kind === 'text') {
         expect(part.text).toMatch(/^echo: hi/);
       }
     }
@@ -3110,6 +3244,7 @@ git commit -m "test(plugins): integration test for GeminiCliPlugin with fake CLI
 - §12 Residual risks → P2-T2 (secret masking), P2-T3 (protocol version), P2-T8 (SIGKILL grace).
 
 **ブランチ運用確認:**
+
 - 全 Phase ブランチは `master` から作成され、`master` への Draft PR を持つ。
 - 各 Task ブランチは直前の Task から派生（Phase 内最初の Task は Phase base から派生）。
 - 全 Task の最終ステップに Draft PR 作成アクションが含まれている。
@@ -3120,6 +3255,7 @@ git commit -m "test(plugins): integration test for GeminiCliPlugin with fake CLI
 **Placeholder scan:** No `TBD`, `TODO`, or "similar to Task N" stubs. Every step has complete code.
 
 **Type consistency check:**
+
 - `A2APluginInterface` signature fixed in P2-T5 and referenced unchanged in P2-T6, P3-T1, P4-T2.
 - `TaskStore.appendStreamChunk` signature fixed in P2-T7 and used in TaskRunner (P3-T1–T7).
 - `computeBackoffMs` signature fixed in P2-T4 and used in P3-T2.

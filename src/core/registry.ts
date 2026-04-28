@@ -1,4 +1,4 @@
-import type { A2APluginInterface } from "./plugin-interface.js";
+import type { A2APluginInterface } from './plugin-interface.js';
 
 export class PluginRegistry {
   private readonly plugins = new Map<string, A2APluginInterface>();
@@ -25,7 +25,9 @@ export class PluginRegistry {
         const raw = Object.prototype.hasOwnProperty.call(configs, plugin.id)
           ? configs[plugin.id]
           : {};
-        const parsed = plugin.configSchema ? plugin.configSchema.parse(raw) : raw;
+        const parsed = plugin.configSchema
+          ? plugin.configSchema.parse(raw)
+          : raw;
         await plugin.initialize?.(parsed);
         initialized.push(plugin);
       }
@@ -56,7 +58,7 @@ export class PluginRegistry {
       }
     }
     if (errors.length > 0) {
-      throw new AggregateError(errors, "One or more plugins failed to dispose");
+      throw new AggregateError(errors, 'One or more plugins failed to dispose');
     }
   }
 }
