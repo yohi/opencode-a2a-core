@@ -3,7 +3,7 @@ import { PluginRegistry } from "../../src/core/registry.js";
 import { InMemoryTaskStore } from "../../src/core/task-store.js";
 import { TaskRunner } from "../../src/core/task-runner.js";
 import { drain, mkMessage, mkPlugin, silentLogger } from "./_helpers.js";
-import type { Task, TaskStatus, StreamResponse } from "../../src/core/a2a-types.js";
+import type { TaskStatus, StreamResponse } from "../../src/core/a2a-types.js";
 import { NonRetriableError } from "../../src/core/errors.js";
 
 describe("TaskRunner — happy path", () => {
@@ -54,7 +54,7 @@ describe("TaskRunner — happy path", () => {
         yield {
           kind: "task",
           task: { id: "fake-id", status: { state: "TASK_STATE_PENDING", timestamp: "" } },
-        } as any;
+        } as unknown as StreamResponse;
         yield {
           kind: "artifact-update",
           artifact: { artifactId: "a1", parts: [{ kind: "text", text: "ok" }] },
@@ -75,7 +75,9 @@ describe("TaskRunner — happy path", () => {
     // Should only have 1 'task' chunk (from runner), not 2
     const taskChunks = out.filter((c) => c.kind === "task");
     expect(taskChunks).toHaveLength(1);
-    expect((taskChunks[0] as any).task.id).not.toBe("fake-id");
+    const firstChunk = taskChunks[0];
+    if (firstChunk?.kind !== "task") throw new Error("Expected task chunk");
+    expect(firstChunk.task.id).not.toBe("fake-id");
 
     expect(out.some((c) => c.kind === "artifact-update")).toBe(true);
   });
