@@ -1,6 +1,6 @@
-import type { z } from "zod";
-import type { Message, StreamResponse } from "./a2a-types.js";
-import type { Logger } from "./logger.js";
+import type { z } from 'zod';
+import type { Message, StreamResponse } from './a2a-types.js';
+import type { Logger } from './logger.js';
 
 export interface A2APluginContext {
   logger: Logger;
@@ -25,7 +25,10 @@ export interface A2APluginInterface<TConfig = unknown> {
   initialize?(config: TConfig): Promise<void>;
   dispose?(): Promise<void>;
 
-  execute(message: Message, ctx: A2APluginContext): AsyncIterable<StreamResponse>;
+  execute(
+    message: Message,
+    ctx: A2APluginContext
+  ): AsyncIterable<StreamResponse>;
 
   metadata(): { skills: A2APluginSkill[] };
 }

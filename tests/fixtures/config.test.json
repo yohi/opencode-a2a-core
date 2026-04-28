@@ -1,0 +1,9 @@
+{
+  "plugins": {
+    "gemini-cli": {
+      "cliPath": "gemini",
+      "model": "gemini-2.5-pro",
+      "apiKey": "${env:FAKE_GEMINI_API_KEY}"
+    }
+  }
+}
