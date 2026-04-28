@@ -147,7 +147,11 @@ POST /
 2. `taskId` 変数を `undefined` で初期化
 3. `c.req.raw.signal` (クライアント切断) の `abort` イベントを監視
    → 発火時に `AbortController.abort()` 呼び出し（`message/stream` と対称）
-   - **根拠**: クライアントが HTTP 接続をタイムアウト等で切断した場合、応答先が存在しないままタスクが完走するとリソース消費・DoS リスクとなるため、`message/stream` と同様に切断時は中断する
+   - リスナー登録**直後**に `if (c.req.raw.signal.aborted) abortController.abort()` で同期チェックを実施
+   - **根拠 (リソース保護)**: クライアントが HTTP 接続をタイムアウト等で切断した場合、応答先が存在しないままタスクが完走するとリソース消費・DoS リスクとなるため、`message/stream` と同様に切断時は中断する
+   - **根拠 (already-aborted race)**: AbortSignal 仕様上、リスナー登録時点で既に `aborted === true` の場合は `abort` イベントが再発火しない。
+     ハンドラ到達時点で既にクライアントが切断済みのケース（タイムアウト等）を取りこぼすと、上記リソース保護目的が達成されないため、登録順序「先にリスナー追加 → 後で同期チェック」を厳守する。
+     `AbortController.abort()` は冪等のため、リスナー経由と同期チェック経由で二重に呼ばれても問題ない
 4. `try` ブロック開始
 5. `TaskRunner.run(pluginId, message, { abortSignal, contextId })` のイテレーションを開始
 6. 最初のチャンク（`{ kind: 'task', task }`）から `taskId` を取得し、
@@ -169,6 +173,8 @@ POST /
 2. `taskId` 変数を `undefined` で初期化
 3. `c.req.raw.signal` (クライアント切断) の `abort` イベントを監視
    → 発火時に `AbortController.abort()` 呼び出し
+   - リスナー登録**直後**に `if (c.req.raw.signal.aborted) abortController.abort()` で同期チェックを実施
+     （`message/send` と同様、登録時点で既にアボート済みのケースを取りこぼさないため。詳細根拠は `message/send` ステップ3を参照）
 4. Hono の `streamSSE` ヘルパーで SSE ストリーム開始
 5. `TaskRunner.run()` のイテレーションを開始し、最初のチャンク（`{ kind: 'task', task }`）から
    `taskId` を取得し、`activeAbortControllers.set(taskId, abortController)` で登録
@@ -285,6 +291,7 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | | プラグインエラー（taskId 取得後 throw） | FAILED 状態の Task を正常レスポンスで返却 |
 | | 最初のチャンク前 throw（taskId 未取得） | -32603 Internal error |
 | | クライアント切断（`c.req.raw.signal` abort） | `AbortController.abort()` 呼び出し検証 |
+| | 事前 abort 済み signal で起動（already-aborted race） | `AbortController.abort()` が同期チェック経路で呼び出される（リスナー未発火でも検出） |
 | | catch / finally 経路 | `activeAbortControllers` から taskId が削除される（リーク防止） |
 | **tasks/get** | 存在するタスク | Task 返却 |
 | | 存在しないID | -32001 Task not found |
@@ -296,6 +303,7 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | **message/stream** | 正常系 | Content-Type: text/event-stream、イベント形式検証 |
 | | 最初のチャンク前 throw（taskId 未取得） | `event: error` + `data: { code: -32603, message: ... }` を1件送信して終了 |
 | | SSE 切断検知 | `AbortController.abort()` 呼び出し検証 |
+| | 事前 abort 済み signal で起動（already-aborted race） | `AbortController.abort()` が同期チェック経路で呼び出される（リスナー未発火でも検出） |
 | **AgentCard** | GET 正常系 | プラグインメタデータの JSON 返却 |
 | | `baseUrl` 明示設定 | `url` フィールドが設定値と一致 |
 | | `X-Forwarded-Proto` + `X-Forwarded-Host` 設定（baseUrl 未指定） | `url` フィールドがヘッダー由来のオリジンと一致 |
