@@ -496,10 +496,12 @@ async function handleMessageStream(
         await stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) });
       }
     } catch {
-      await stream.writeSSE({
-        event: 'error',
-        data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
-      });
+      if (!taskId) {
+        await stream.writeSSE({
+          event: 'error',
+          data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
+        });
+      }
     } finally {
       if (taskId) deps.activeAbortControllers.delete(taskId);
       c.req.raw.signal.removeEventListener('abort', onAbort);
@@ -543,8 +545,7 @@ async function handleTasksCancel(
 
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
-    const isTerminal =
-      task.status.state === 'COMPLETED' || task.status.state === 'FAILED' || task.status.state === 'CANCELED';
+    const isTerminal = TERMINAL_STATES.has(task.status.state);
     if (isTerminal) {
       return c.json(
         rpcError(id, JSON_RPC_ERRORS.TASK_CANCELED, 'Task is already in terminal state and cannot be canceled')
