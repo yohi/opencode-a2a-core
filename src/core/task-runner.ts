@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import type { Message, StreamResponse, TaskStatus } from "./a2a-types.js";
 import type { A2APluginContext } from "./plugin-interface.js";
 import type { PluginRegistry } from "./registry.js";
@@ -97,19 +98,22 @@ export class TaskRunner {
 
         if (attempt < this.options.maxAttempts) {
           try {
-            await this.sleep(
+            await delay(
               computeBackoffMs(attempt, {
                 initialMs: this.options.initialBackoffMs,
                 maxMs: this.options.maxBackoffMs,
                 multiplier: this.options.backoffMultiplier,
                 jitterRatio: this.options.jitterRatio,
               }),
-              opts.abortSignal,
+              undefined,
+              { signal: opts.abortSignal },
             );
-          } catch (sleepErr) {
+          } catch (sleepErr: any) {
             lastError = sleepErr;
             // Break loop on sleep failure (e.g. AbortSignal)
-            break;
+            if (sleepErr?.name === "AbortError" || opts.abortSignal.aborted) {
+              break;
+            }
           }
         }
       }
@@ -153,26 +157,5 @@ export class TaskRunner {
     };
     await this.taskStore.updateStatus(taskId, status);
     yield { kind: "status-update", status };
-  }
-
-  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (signal?.aborted) {
-        return reject(signal.reason);
-      }
-
-      // biome-ignore lint/nursery/useQwikValidLexicalScope: False positive in non-Qwik project
-      const onAbort = () => {
-        clearTimeout(timeout);
-        reject(signal?.reason);
-      };
-
-      const timeout = setTimeout(() => {
-        signal?.removeEventListener("abort", onAbort);
-        resolve();
-      }, ms);
-
-      signal?.addEventListener("abort", onAbort, { once: true });
-    });
   }
 }
