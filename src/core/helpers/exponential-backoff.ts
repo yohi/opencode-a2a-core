@@ -8,13 +8,13 @@ export interface BackoffOptions {
 export function computeBackoffMs(
   attempt: number,
   opts: BackoffOptions,
-  rng: () => number = Math.random,
+  rng: () => number = Math.random
 ): number {
-  if (attempt < 1) throw new Error("attempt must be >= 1");
-  if (opts.initialMs <= 0) throw new Error("initialMs must be > 0");
-  if (opts.multiplier < 0) throw new Error("multiplier must be >= 0");
+  if (attempt < 1) throw new Error('attempt must be >= 1');
+  if (opts.initialMs <= 0) throw new Error('initialMs must be > 0');
+  if (opts.multiplier < 0) throw new Error('multiplier must be >= 0');
   if (opts.jitterRatio < 0 || opts.jitterRatio > 1) {
-    throw new Error("jitterRatio must be between 0 and 1");
+    throw new Error('jitterRatio must be between 0 and 1');
   }
 
   const base = opts.initialMs * Math.pow(opts.multiplier, attempt - 1);

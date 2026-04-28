@@ -1,5 +1,11 @@
-import { randomUUID } from "node:crypto";
-import type { Task, TaskStatus, Artifact, StreamResponse, Message } from "./a2a-types.js";
+import { randomUUID } from 'node:crypto';
+import type {
+  Task,
+  TaskStatus,
+  Artifact,
+  StreamResponse,
+  Message,
+} from './a2a-types.js';
 
 export interface TaskStore {
   create(init: { contextId?: string }): Promise<Task>;
@@ -18,7 +24,10 @@ export class InMemoryTaskStore implements TaskStore {
     const task: Task = {
       id: randomUUID(),
       ...(init.contextId !== undefined ? { contextId: init.contextId } : {}),
-      status: { state: "TASK_STATE_PENDING", timestamp: new Date().toISOString() },
+      status: {
+        state: 'TASK_STATE_PENDING',
+        timestamp: new Date().toISOString(),
+      },
     };
     // Store a clone to prevent external mutation if 'task' were somehow shared
     this.store.set(task.id, structuredClone(task));
@@ -33,18 +42,18 @@ export class InMemoryTaskStore implements TaskStore {
   async update(id: string, patch: Partial<Task>): Promise<Task> {
     const existing = this.store.get(id);
     if (!existing) throw new Error(`task not found: ${id}`);
-    
+
     const clonedPatch = structuredClone(patch);
-    
-    // Merge into a new object. 
+
+    // Merge into a new object.
     // If patch contains status, merge it with existing status.
-    const updated: Task = { 
-      ...existing, 
+    const updated: Task = {
+      ...existing,
       ...clonedPatch,
-      status: clonedPatch.status 
+      status: clonedPatch.status
         ? { ...existing.status, ...clonedPatch.status }
         : existing.status,
-      id: existing.id // protect ID
+      id: existing.id, // protect ID
     };
     this.store.set(id, structuredClone(updated));
     return structuredClone(updated);
@@ -54,7 +63,10 @@ export class InMemoryTaskStore implements TaskStore {
     const existing = this.store.get(id);
     if (!existing) throw new Error(`task not found: ${id}`);
     // Store a clone of the artifact
-    existing.artifacts = [...(existing.artifacts ?? []), structuredClone(artifact)];
+    existing.artifacts = [
+      ...(existing.artifacts ?? []),
+      structuredClone(artifact),
+    ];
   }
 
   private async appendMessage(id: string, message: Message): Promise<void> {
@@ -64,17 +76,19 @@ export class InMemoryTaskStore implements TaskStore {
   }
 
   async appendStreamChunk(id: string, chunk: StreamResponse): Promise<void> {
-    if (chunk.kind === "artifact-update") {
+    if (chunk.kind === 'artifact-update') {
       await this.appendArtifact(id, chunk.artifact);
-    } else if (chunk.kind === "status-update") {
+    } else if (chunk.kind === 'status-update') {
       await this.updateStatus(id, chunk.status);
-    } else if (chunk.kind === "message") {
+    } else if (chunk.kind === 'message') {
       await this.appendMessage(id, chunk.message);
-    } else if (chunk.kind === "task") {
+    } else if (chunk.kind === 'task') {
       // Typically emitted by the runner, but skip if seen in stream to avoid unhandled kind error
     } else {
       const unknownChunk = chunk as unknown as { kind: string };
-      throw new Error(`Unhandled stream chunk kind "${unknownChunk.kind}" for task ${id}`);
+      throw new Error(
+        `Unhandled stream chunk kind "${unknownChunk.kind}" for task ${id}`
+      );
     }
   }
 

@@ -1,7 +1,7 @@
-import { z } from "zod";
-import type { A2APluginInterface } from "../../src/core/plugin-interface.js";
-import type { Message, StreamResponse } from "../../src/core/a2a-types.js";
-import { ConsoleLogger, type Logger } from "../../src/core/logger.js";
+import { z } from 'zod';
+import type { A2APluginInterface } from '../../src/core/plugin-interface.js';
+import type { Message, StreamResponse } from '../../src/core/a2a-types.js';
+import { ConsoleLogger, type Logger } from '../../src/core/logger.js';
 
 export function silentLogger(): Logger {
   return {
@@ -13,21 +13,24 @@ export function silentLogger(): Logger {
 }
 
 export function mkMessage(): Message {
-  return { role: "ROLE_USER", parts: [{ kind: "text", text: "hi" }] };
+  return { role: 'ROLE_USER', parts: [{ kind: 'text', text: 'hi' }] };
 }
 
 export function mkPlugin(
   id: string,
-  exec: (msg: Message, ctx: { abortSignal: AbortSignal }) => AsyncIterable<StreamResponse>,
+  exec: (
+    msg: Message,
+    ctx: { abortSignal: AbortSignal }
+  ) => AsyncIterable<StreamResponse>
 ): A2APluginInterface {
   return {
     id,
-    version: "0.0.1",
+    version: '0.0.1',
     configSchema: z.object({}).passthrough(),
     async initialize() {},
     async dispose() {},
     execute: exec,
-    metadata: () => ({ skills: [{ id, name: id, description: "" }] }),
+    metadata: () => ({ skills: [{ id, name: id, description: '' }] }),
   };
 }
 
