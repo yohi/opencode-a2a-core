@@ -41,7 +41,9 @@ describe('loadConfig', () => {
   });
 
   it('returns an empty plugins map for a missing file', async () => {
-    const cfg = await loadConfig(join(tmpdir(), `non-existent-${randomUUID()}.json`));
+    const cfg = await loadConfig(
+      join(tmpdir(), `non-existent-${randomUUID()}.json`)
+    );
     expect(cfg.plugins).toEqual({});
   });
 
