@@ -116,6 +116,29 @@ describe('AgentCard endpoint', () => {
     expect(body.url).toBe('https://proxy.example.com');
   });
 
+  it('falls back to request.url origin when proxy headers are invalid or partial', async () => {
+    const app = createA2AServer({
+      plugin,
+      allowUnauthenticated: true,
+      trustProxy: true,
+    });
+
+    // Partial header
+    const res1 = await app.request('/.well-known/agent.json', {
+      headers: { 'X-Forwarded-Proto': 'https' },
+    });
+    expect((await res1.json()).url).toBe('http://localhost');
+
+    // Invalid scheme
+    const res2 = await app.request('/.well-known/agent.json', {
+      headers: {
+        'X-Forwarded-Proto': 'ftp',
+        'X-Forwarded-Host': 'example.com',
+      },
+    });
+    expect((await res2.json()).url).toBe('http://localhost');
+  });
+
   it('falls back to request.url origin', async () => {
     const app = createA2AServer({
       plugin,
@@ -274,7 +297,7 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
   // AgentCard endpoint (no auth required)
   app.get('/.well-known/agent.json', (c) => {
     const meta = options.plugin.metadata();
-    const url = resolveBaseUrl(c, options.baseUrl, options.trustProxy);
+    const url = resolveBaseUrl(c, options.baseUrl, options.trustProxy, logger);
     return c.json({
       name: options.plugin.id,
       url,
@@ -306,16 +329,26 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
 function resolveBaseUrl(
   c: { req: { url: string; header: (name: string) => string | undefined } },
   baseUrl?: string,
-  trustProxy?: boolean
+  trustProxy?: boolean,
+  logger?: Logger
 ): string {
   if (baseUrl) return baseUrl;
 
   if (trustProxy) {
-    const proto = c.req.header('x-forwarded-proto');
+    const proto = c.req.header('x-forwarded-proto')?.toLowerCase();
     const host = c.req.header('x-forwarded-host');
+
     if (proto && host) {
+      const isValidProto = proto === 'http' || proto === 'https';
       const firstHost = host.split(',')[0].trim();
-      return `${proto}://${firstHost}`;
+      // Simple authority validation (must not be empty and no obvious illegal chars)
+      const isValidHost = firstHost.length > 0 && !/[\s<>]/.test(firstHost);
+
+      if (isValidProto && isValidHost) {
+        return `${proto}://${firstHost}`;
+      }
+      
+      logger?.warn(`Rejected invalid X-Forwarded headers: proto=${proto}, host=${host}`);
     }
   }
 
@@ -390,6 +423,25 @@ describe('message/stream E2E', () => {
     const body = await res.json();
     expect(body.error.code).toBe(-32600);
   });
+
+  it('sends error event when plugin throws before first chunk (taskId not acquired)', async () => {
+    const plugin = createTestPlugin('fail-early-stream', async function* () {
+      throw new Error('init failure');
+    });
+    const app = createA2AServer({ plugin, allowUnauthenticated: true });
+
+    const res = await app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'message/stream',
+        params: { message: mkMessage() },
+      }),
+    });
+    const text = await res.text();
+    expect(text).toContain('event: error');
+    expect(text).toContain('"code":-32603'); // INTERNAL_ERROR
+  });
 });
 
 describe('tasks/cancel E2E', () => {
@@ -458,6 +510,169 @@ describe('message/send error handling', () => {
     });
     const body2 = await res2.json();
     expect(body2.result).toBeDefined();
+  });
+});
+
+describe('edge cases and race conditions', () => {
+  it('message/send aborts on client disconnect', async () => {
+    const plugin = createTestPlugin('disconnect-send', async function* () {
+      await new Promise((r) => setTimeout(r, 100)); // Simulate delay
+    });
+    const app = createA2AServer({ plugin, allowUnauthenticated: true });
+
+    const abortController = new AbortController();
+    const reqPromise = app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: mkMessage() } }),
+      signal: abortController.signal,
+    });
+
+    abortController.abort(); // Disconnect immediately
+    await expect(reqPromise).rejects.toThrow();
+  });
+
+  it('message/stream aborts on client disconnect', async () => {
+    const plugin = createTestPlugin('disconnect-stream', async function* () {
+      await new Promise((r) => setTimeout(r, 100)); // Simulate delay
+    });
+    const app = createA2AServer({ plugin, allowUnauthenticated: true });
+
+    const abortController = new AbortController();
+    const reqPromise = app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: { message: mkMessage() } }),
+      signal: abortController.signal,
+    });
+
+    abortController.abort(); // Disconnect immediately
+    await expect(reqPromise).rejects.toThrow();
+  });
+
+  it('message/send detects already-aborted signal', async () => {
+    const plugin = createTestPlugin('already-aborted-send', async function* () {});
+    const app = createA2AServer({ plugin, allowUnauthenticated: true });
+
+    const abortController = new AbortController();
+    abortController.abort(); // Abort before passing to request
+
+    const reqPromise = app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: mkMessage() } }),
+      signal: abortController.signal,
+    });
+    await expect(reqPromise).rejects.toThrow();
+  });
+
+  it('message/stream detects already-aborted signal', async () => {
+    const plugin = createTestPlugin('already-aborted-stream', async function* () {});
+    const app = createA2AServer({ plugin, allowUnauthenticated: true });
+
+    const abortController = new AbortController();
+    abortController.abort(); // Abort before passing to request
+
+    const reqPromise = app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: { message: mkMessage() } }),
+      signal: abortController.signal,
+    });
+    await expect(reqPromise).rejects.toThrow();
+  });
+
+  it('tasks/cancel returns TASK_CANCELED for already terminal task', async () => {
+    const plugin = createTestPlugin('cancel-already-terminal', async function* () {
+      yield {
+        kind: 'status-update',
+        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+      };
+    });
+    const app = createA2AServer({ plugin, allowUnauthenticated: true });
+
+    const resSend = await app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: mkMessage() } }),
+    });
+    const bodySend = await resSend.json();
+    const taskId = bodySend.result.id;
+
+    const resCancel = await app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
+    });
+    const bodyCancel = await resCancel.json();
+    expect(bodyCancel.error.code).toBe(-32002); // TASK_CANCELED returned when already terminal
+  });
+
+  it('tasks/cancel returns COMPLETED task if it completes during cancellation race', async () => {
+    let completeTask: () => void;
+    const taskPromise = new Promise<void>((resolve) => {
+      completeTask = resolve;
+    });
+
+    const plugin = createTestPlugin('cancel-race', async function* () {
+      yield {
+        kind: 'status-update',
+        status: { state: 'TASK_STATE_IN_PROGRESS', timestamp: new Date().toISOString() },
+      };
+      
+      await taskPromise;
+      
+      yield {
+        kind: 'status-update',
+        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+      };
+    });
+    const app = createA2AServer({ plugin, allowUnauthenticated: true });
+
+    const resStream = await app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: { message: mkMessage() } }),
+    });
+    
+    const reader = resStream.body!.getReader();
+    const decoder = new TextDecoder();
+    let taskId = '';
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunks = decoder.decode(value, { stream: true }).split('\n\n');
+      for (const chunk of chunks) {
+        if (chunk.startsWith('data: ')) {
+          const data = JSON.parse(chunk.slice(6));
+          if (data.task) {
+            taskId = data.task.id;
+            break;
+          }
+        }
+      }
+      if (taskId) break;
+    }
+    
+    // Send cancel request, but do not await yet
+    const cancelReqPromise = app.request('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
+    });
+
+    // Simulate task completing just as cancel is processing
+    completeTask!();
+
+    const resCancel = await cancelReqPromise;
+    const bodyCancel = await resCancel.json();
+
+    // The result should be the successfully completed task
+    expect(bodyCancel.result).toBeDefined();
+    expect(bodyCancel.result.status.state).toBe('TASK_STATE_COMPLETED');
+    
+    await reader.cancel();
   });
 });
 ```

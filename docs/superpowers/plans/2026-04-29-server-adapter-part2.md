@@ -440,9 +440,23 @@ async function handleMessageSend(
     }
 
     const task = await deps.taskStore.get(taskId);
+    if (!task) {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task disappeared'));
+    }
     return c.json(rpcResult(id, task));
   } catch {
-    return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
+    if (!taskId) {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
+    }
+    try {
+      const task = await deps.taskStore.get(taskId);
+      if (!task) {
+        return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task not found after failure'));
+      }
+      return c.json(rpcResult(id, task));
+    } catch {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task store access failed'));
+    }
   } finally {
     if (taskId) deps.activeAbortControllers.delete(taskId);
     c.req.raw.signal.removeEventListener('abort', onAbort);
@@ -482,10 +496,12 @@ async function handleMessageStream(
         await stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) });
       }
     } catch {
-      await stream.writeSSE({
-        event: 'error',
-        data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
-      });
+      if (!taskId) {
+        await stream.writeSSE({
+          event: 'error',
+          data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
+        });
+      }
     } finally {
       if (taskId) deps.activeAbortControllers.delete(taskId);
       c.req.raw.signal.removeEventListener('abort', onAbort);
@@ -529,8 +545,14 @@ async function handleTasksCancel(
 
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
+    const isTerminal = TERMINAL_STATES.has(task.status.state);
+    if (isTerminal) {
+      return c.json(
+        rpcError(id, JSON_RPC_ERRORS.TASK_CANCELED, 'Task is already in terminal state and cannot be canceled')
+      );
+    }
     return c.json(
-      rpcError(id, JSON_RPC_ERRORS.INVALID_REQUEST, 'Task is already in terminal state and cannot be canceled')
+      rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Abort controller missing for non-terminal task')
     );
   }
 

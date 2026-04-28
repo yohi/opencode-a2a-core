@@ -253,6 +253,7 @@ interface CreateA2AServerOptions {
   auth?: { token: string };                 // デフォルト: 認証必須（未設定かつ allowUnauthenticated 未設定は起動エラー）
   allowUnauthenticated?: boolean;           // 開発用途で auth スキップを明示する opt-out フラグ (default: false)
   baseUrl?: string;                         // AgentCard.url に使用するサーバー公開 URL（リバースプロキシ環境での明示用）
+  trustProxy?: boolean;                     // X-Forwarded-* ヘッダーを baseUrl 解決に使用する (default: false)
   taskRunnerOptions?: Partial<TaskRunnerOptions>;
 }
 
@@ -288,12 +289,17 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 リバースプロキシ経由で公開される一般的なデプロイ構成において、`request.url` のオリジンはプロキシ内部のアドレスとなり、A2A クライアントが正しい接続先を取得できなくなる問題を回避するため、以下の優先順位で解決する:
 
 1. `CreateA2AServerOptions.baseUrl` が設定されている場合: その値をそのまま使用（最優先・明示設定）
-2. `X-Forwarded-Proto` および `X-Forwarded-Host` ヘッダーが両方存在する場合:
+2. `trustProxy: true` が設定されており、かつ `X-Forwarded-Proto` および `X-Forwarded-Host` ヘッダーが両方存在する場合:
    `${X-Forwarded-Proto}://${X-Forwarded-Host}` をオリジンとして使用
-   - `X-Forwarded-Host` がカンマ区切りの複数ホストを含む場合は最左の値を採用（RFC 7239 / X-Forwarded-* デファクト準拠）
+   - **バリデーションとフォールバックルール**:
+     - `X-Forwarded-Proto` は `http` または `https` (case-insensitive, 小文字に正規化) であること。
+     - `X-Forwarded-Host` は有効な authority 形式であること。カンマ区切りの複数ホストを含む場合は最左の値を採用し、空白をトリムする。
+     - いずれかの値が不正（未知のスキーム、ホストパース失敗、空、不正な文字を含む等）な場合は、そのペアを無視しフォールバック（後述）を適用する。
+     - 実装は診断のために拒否されたヘッダー値をログに記録することが望ましい。
 3. 上記いずれも該当しない場合: `new URL(c.req.url).origin` を使用（フォールバック）
 
-本番環境（リバースプロキシ配下）では `baseUrl` の明示設定を強く推奨する。`X-Forwarded-*` ヘッダーは信頼できるプロキシ配下でのみ意味を持つため、依存する場合はプロキシでの上書き設定が前提となる。
+`trustProxy` のデフォルトは `false`。信頼できないプロキシからのヘッダーインジェクションを防ぐため、`X-Forwarded-*` ヘッダーを用いた URL 解決は `trustProxy: true` を明示した場合のみ有効となる。
+本番環境（リバースプロキシ配下）では `baseUrl` の明示設定を強く推奨する。
 
 ## Testing Strategy
 
@@ -333,7 +339,9 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | | 事前 abort 済み signal で起動（already-aborted race） | `AbortController.abort()` が同期チェック経路で呼び出される（リスナー未発火でも検出） |
 | **AgentCard** | GET 正常系 | プラグインメタデータの JSON 返却 |
 | | `baseUrl` 明示設定 | `url` フィールドが設定値と一致 |
-| | `X-Forwarded-Proto` + `X-Forwarded-Host` 設定（baseUrl 未指定） | `url` フィールドがヘッダー由来のオリジンと一致 |
+| | `trustProxy: true` + `X-Forwarded-Proto` + `X-Forwarded-Host` 設定（baseUrl 未指定） | `url` フィールドがヘッダー由来のオリジンと一致 |
+| | `trustProxy: true` + 片方のヘッダーのみ存在 / 不正な値（未知のスキーム等） | ヘッダーを無視し `request.url` のオリジンと一致（フォールバック） |
+| | `trustProxy: false`（デフォルト）+ `X-Forwarded-*` ヘッダー設定 | ヘッダーを無視し `request.url` のオリジンと一致 |
 | | 何も設定なし | `url` フィールドが `request.url` のオリジンと一致（フォールバック） |
 
 ### テストヘルパー
