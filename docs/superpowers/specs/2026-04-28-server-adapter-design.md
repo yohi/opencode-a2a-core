@@ -183,8 +183,11 @@ POST /
    - `taskId` 取得済み: `FAILED` チャンクは throw 前に yield・送信済みのためそのままストリームを正常終了
    - `taskId` 未取得（最初のチャンク yield 前に throw）: SSE クライアントへエラーイベントを1件送信した上でストリームを終了
      - `event: error`
-     - `data`: JSON-RPC エラー形式の JSON 文字列 `{ "code": -32603, "message": <エラー詳細> }`
-       （`JSON_RPC_ERRORS.INTERNAL_ERROR` を使用、本文中の他のエラーレスポンスと整合）
+     - `data`: JSON-RPC 2.0 エラーレスポンス形式の JSON 文字列
+       `{ "jsonrpc": "2.0", "id": <元リクエストの id>, "error": { "code": -32603, "message": <エラー詳細> } }`
+     - **設計根拠**: HTTP の RPC エラーレスポンスと完全同一の envelope を採用することで、クライアントは同一の JSON-RPC エラーパーサ・型定義を HTTP / SSE 両経路で再利用可能。`id` で元リクエストとの相関も取れる
+     - `id` は元の JSON-RPC リクエストの `id` をそのまま転記。リクエストに `id` フィールドがない（通知形態）の場合は `null` を設定
+     - `code` は `JSON_RPC_ERRORS.INTERNAL_ERROR` (-32603) を使用
 8. `finally` で `taskId` が定義済みであれば `activeAbortControllers.delete(taskId)` を実行、イベントリスナー解除
 
 #### `tasks/get`
@@ -301,7 +304,8 @@ function createA2AServer(options: CreateA2AServerOptions): Hono;
 | | 既に終端状態のタスク（TaskStore に存在） | -32002 Task canceled |
 | | 終端状態待機タイムアウト | -32603 Internal error |
 | **message/stream** | 正常系 | Content-Type: text/event-stream、イベント形式検証 |
-| | 最初のチャンク前 throw（taskId 未取得） | `event: error` + `data: { code: -32603, message: ... }` を1件送信して終了 |
+| | 最初のチャンク前 throw（taskId 未取得） | `event: error` + `data: { jsonrpc: "2.0", id: <req.id>, error: { code: -32603, message: ... } }` を1件送信して終了 |
+| | 最初のチャンク前 throw（リクエスト id なし） | SSE エラーイベントの `data.id` が `null` |
 | | SSE 切断検知 | `AbortController.abort()` 呼び出し検証 |
 | | 事前 abort 済み signal で起動（already-aborted race） | `AbortController.abort()` が同期チェック経路で呼び出される（リスナー未発火でも検出） |
 | **AgentCard** | GET 正常系 | プラグインメタデータの JSON 返却 |
