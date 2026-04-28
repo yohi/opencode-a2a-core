@@ -4,7 +4,7 @@
 
 ---
 
-### Task 2: Bearer Auth Middleware (`src/server/middleware/auth.ts`)
+## Task 2: Bearer Auth Middleware (`src/server/middleware/auth.ts`)
 
 **派生元:** `feature/phase1_server-adapter__base` (Base) — Schema とは独立
 
@@ -133,7 +133,7 @@ git commit -m "feat(server): add timing-safe Bearer auth middleware"
 
 ---
 
-### Task 3: RPC Handler (`src/server/rpc/handler.ts`)
+## Task 3: RPC Handler (`src/server/rpc/handler.ts`)
 
 **派生元:** `feature/phase1-task2_auth-middleware` (Task2) — handler は auth middleware の上に構築され、Task1 の schema も使用する数珠つなぎタスク
 
@@ -442,11 +442,7 @@ async function handleMessageSend(
     const task = await deps.taskStore.get(taskId);
     return c.json(rpcResult(id, task));
   } catch {
-    if (!taskId) {
-      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
-    }
-    const task = await deps.taskStore.get(taskId);
-    return c.json(rpcResult(id, task));
+    return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
   } finally {
     if (taskId) deps.activeAbortControllers.delete(taskId);
     c.req.raw.signal.removeEventListener('abort', onAbort);
@@ -486,12 +482,10 @@ async function handleMessageStream(
         await stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) });
       }
     } catch {
-      if (!taskId) {
-        await stream.writeSSE({
-          event: 'error',
-          data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
-        });
-      }
+      await stream.writeSSE({
+        event: 'error',
+        data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
+      });
     } finally {
       if (taskId) deps.activeAbortControllers.delete(taskId);
       c.req.raw.signal.removeEventListener('abort', onAbort);

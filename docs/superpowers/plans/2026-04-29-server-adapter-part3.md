@@ -4,7 +4,7 @@
 
 ---
 
-### Task 4: Server Factory (`src/server/index.ts`)
+## Task 4: Server Factory (`src/server/index.ts`)
 
 **派生元:** `feature/phase1-task3_rpc-handler` (Task3) — handler + auth を組み合わせるファクトリ
 
@@ -85,10 +85,26 @@ describe('AgentCard endpoint', () => {
     expect(body.url).toBe('https://example.com');
   });
 
-  it('uses X-Forwarded headers when baseUrl is not set', async () => {
+  it('ignores X-Forwarded headers when trustProxy is false (default)', async () => {
     const app = createA2AServer({
       plugin,
       allowUnauthenticated: true,
+    });
+    const res = await app.request('/.well-known/agent.json', {
+      headers: {
+        'X-Forwarded-Proto': 'https',
+        'X-Forwarded-Host': 'proxy.example.com, internal.local',
+      },
+    });
+    const body = await res.json();
+    expect(body.url).toBe('http://localhost');
+  });
+
+  it('uses X-Forwarded headers when trustProxy is true', async () => {
+    const app = createA2AServer({
+      plugin,
+      allowUnauthenticated: true,
+      trustProxy: true,
     });
     const res = await app.request('/.well-known/agent.json', {
       headers: {
@@ -210,6 +226,8 @@ export interface CreateA2AServerOptions {
   auth?: { token: string };
   allowUnauthenticated?: boolean;
   baseUrl?: string;
+  /** Trust X-Forwarded-* headers for baseUrl resolution. Default: false. */
+  trustProxy?: boolean;
   taskRunnerOptions?: Partial<TaskRunnerOptions>;
 }
 
@@ -229,6 +247,11 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
     throw new Error(
       'Auth configuration required. Set auth.token or explicitly set allowUnauthenticated: true for development.'
     );
+  }
+
+  // Validate token is not empty/whitespace-only
+  if (options.auth && options.auth.token.trim().length === 0) {
+    throw new Error('Auth token must not be empty or whitespace-only.');
   }
 
   if (!options.auth && options.allowUnauthenticated) {
@@ -251,7 +274,7 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
   // AgentCard endpoint (no auth required)
   app.get('/.well-known/agent.json', (c) => {
     const meta = options.plugin.metadata();
-    const url = resolveBaseUrl(c, options.baseUrl);
+    const url = resolveBaseUrl(c, options.baseUrl, options.trustProxy);
     return c.json({
       name: options.plugin.id,
       url,
@@ -282,17 +305,18 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
 
 function resolveBaseUrl(
   c: { req: { url: string; header: (name: string) => string | undefined } },
-  baseUrl?: string
+  baseUrl?: string,
+  trustProxy?: boolean
 ): string {
   if (baseUrl) return baseUrl;
 
-  // WARNING: X-Forwarded-* headers are trusted without validation.
-  // Set baseUrl explicitly in production when not behind a trusted reverse proxy.
-  const proto = c.req.header('x-forwarded-proto');
-  const host = c.req.header('x-forwarded-host');
-  if (proto && host) {
-    const firstHost = host.split(',')[0].trim();
-    return `${proto}://${firstHost}`;
+  if (trustProxy) {
+    const proto = c.req.header('x-forwarded-proto');
+    const host = c.req.header('x-forwarded-host');
+    if (proto && host) {
+      const firstHost = host.split(',')[0].trim();
+      return `${proto}://${firstHost}`;
+    }
   }
 
   return new URL(c.req.url).origin;
@@ -324,7 +348,7 @@ git commit -m "feat(server): add createA2AServer factory with AgentCard endpoint
 
 ---
 
-### Task 5: Stream/Cancel Integration Tests
+## Task 5: Stream/Cancel Integration Tests
 
 **派生元:** `feature/phase1-task4_server-factory` (Task4) — ファクトリが必要
 

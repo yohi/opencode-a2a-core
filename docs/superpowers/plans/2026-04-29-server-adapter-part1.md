@@ -53,7 +53,7 @@ pnpm add hono
 
 ## Phase 1: Server Adapter 実装
 
-### Task 1: JSON-RPC Schema (`src/server/rpc/schema.ts`)
+## Task 1: JSON-RPC Schema (`src/server/rpc/schema.ts`)
 
 **派生元:** `feature/phase1_server-adapter__base` (Base) — 他タスクに依存しない独立モジュール
 
