@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Minimal Gemini-like JSON-lines emitter for integration tests.
-import { stdin, stdout, exit } from 'node:process';
+import { stdin, stdout } from 'node:process';
 
 let buffer = '';
 
@@ -13,5 +13,6 @@ stdin.on('end', () => {
   stdout.write(
     `${JSON.stringify({ type: 'text', text: `echo: ${buffer.trim()}` })}\n`
   );
-  exit(0);
+  process.exitCode = 0;
+  stdout.end();
 });

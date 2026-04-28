@@ -21,13 +21,13 @@ describe('GeminiCliPlugin (integration)', () => {
     await plugin.initialize(cfg);
 
     const ctl = new AbortController();
-    const out = (await drain(
+    const out = await drain(
       plugin.execute(mkMessage(), {
         logger: silentLogger(),
         abortSignal: ctl.signal,
         taskId: 't-1',
       })
-    )) as StreamResponse[];
+    );
 
     expect(out).toHaveLength(1);
     expect(out[0].kind).toBe('artifact-update');
