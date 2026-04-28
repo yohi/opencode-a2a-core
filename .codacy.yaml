@@ -4,4 +4,6 @@ exclude_paths:
 
 ignore_issues:
   - file: "src/core/task-runner.ts"
-    patternId: "Non-serializable expression must be wrapped with $(...)"
+    patternId: "qwik/valid-lexical-scope"
+  - file: "src/core/task-runner.ts"
+    patternId: "useValidQwikLexicalScope"
