@@ -166,7 +166,7 @@ export interface A2APluginInterface<TConfig = unknown> {
 
   execute(
     message: Message,
-    ctx: A2APluginContext,
+    ctx: A2APluginContext
   ): AsyncIterable<StreamResponse>;
 
   metadata(): { skill: A2APluginSkill };
@@ -182,7 +182,7 @@ export interface A2APluginInterface<TConfig = unknown> {
 
 ```ts
 export function defineA2APlugin<TConfig>(
-  def: A2APluginInterface<TConfig>,
+  def: A2APluginInterface<TConfig>
 ): A2APluginInterface<TConfig> {
   return def;
 }
@@ -195,7 +195,7 @@ export function defineA2APlugin<TConfig>(
 ```ts
 export class PluginRegistry {
   private plugins = new Map<string, A2APluginInterface>();
-  register(plugin: A2APluginInterface): void;        // 重複idでError
+  register(plugin: A2APluginInterface): void; // 重複idでError
   get(id: string): A2APluginInterface | undefined;
   list(): A2APluginInterface[];
   async initializeAll(configs: Record<string, unknown>): Promise<void>;
@@ -219,18 +219,18 @@ export class TaskRunner {
     private readonly registry: PluginRegistry,
     private readonly taskStore: TaskStore,
     private readonly options: {
-      maxAttempts: number;           // 既定 3
-      initialBackoffMs: number;      // 既定 500
-      backoffMultiplier: number;     // 既定 2
-      jitterRatio: number;           // 既定 0.2
+      maxAttempts: number; // 既定 3
+      initialBackoffMs: number; // 既定 500
+      backoffMultiplier: number; // 既定 2
+      jitterRatio: number; // 既定 0.2
       logger: Logger;
-    },
+    }
   ) {}
 
   async *run(
     pluginId: string,
     message: Message,
-    opts: { abortSignal: AbortSignal; contextId?: string },
+    opts: { abortSignal: AbortSignal; contextId?: string }
   ): AsyncIterable<StreamResponse>;
 }
 ```
@@ -330,22 +330,22 @@ async *run(pluginId, message, { abortSignal, contextId }) {
 
 ### 5.1 エンドポイント
 
-| Method | Path | 役割 |
-| --- | --- | --- |
-| `GET` | `/.well-known/agent.json` | AgentCard（能力発見、無認証） |
-| `GET` | `/health` | ヘルスチェック（無認証） |
-| `POST` | `/` | JSON-RPC 2.0 エンドポイント（Bearer 必須） |
+| Method | Path                      | 役割                                       |
+| ------ | ------------------------- | ------------------------------------------ |
+| `GET`  | `/.well-known/agent.json` | AgentCard（能力発見、無認証）              |
+| `GET`  | `/health`                 | ヘルスチェック（無認証）                   |
+| `POST` | `/`                       | JSON-RPC 2.0 エンドポイント（Bearer 必須） |
 
 A2A v1.0.0 仕様に従い、全ての業務メソッドは単一の `POST /` に JSON-RPC で相乗りする。
 
 ### 5.2 JSON-RPC メソッド
 
-| メソッド | 入力 | 出力 | 備考 |
-| --- | --- | --- | --- |
-| `message/send` | `{ message }` | `Task` | 完了まで待機して最終 `Task` オブジェクトを返却（本実装では常に Task を生成するため `Message` 直返却はしない） |
-| `message/stream` | `{ message }` | SSE ストリーム | `StreamResponse` を 1 チャンク 1 SSE イベントとして配信 |
-| `tasks/get` | `{ id }` | `Task` | `TaskStore` 参照 |
-| `tasks/cancel` | `{ id }` | `Task` | 該当タスクの `AbortController.abort()` |
+| メソッド         | 入力          | 出力           | 備考                                                                                                          |
+| ---------------- | ------------- | -------------- | ------------------------------------------------------------------------------------------------------------- |
+| `message/send`   | `{ message }` | `Task`         | 完了まで待機して最終 `Task` オブジェクトを返却（本実装では常に Task を生成するため `Message` 直返却はしない） |
+| `message/stream` | `{ message }` | SSE ストリーム | `StreamResponse` を 1 チャンク 1 SSE イベントとして配信                                                       |
+| `tasks/get`      | `{ id }`      | `Task`         | `TaskStore` 参照                                                                                              |
+| `tasks/cancel`   | `{ id }`      | `Task`         | 該当タスクの `AbortController.abort()`                                                                        |
 
 `message/send` は内部で `TaskRunner.run()` を回し、全チャンクを集約したうえで、完了まで待機してから最終 `Task` オブジェクトを返す。本実装では `TaskRunner.run()` が常に `Task` を生成するため、A2A v1.0.0 仕様で許容される `Message` 直返却モードは用いない。
 
@@ -392,7 +392,12 @@ TaskRunner が CANCELED 状態を yield して終了
   "defaultInputModes": ["text/plain", "application/json"],
   "defaultOutputModes": ["text/plain", "application/json"],
   "skills": [
-    { "id": "gemini-cli", "name": "Gemini CLI", "description": "Delegates to Google Gemini CLI", "tags": ["code", "chat"] }
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "description": "Delegates to Google Gemini CLI",
+      "tags": ["code", "chat"]
+    }
   ],
   "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } },
   "security": [{ "bearer": [] }]
@@ -411,12 +416,12 @@ TaskRunner が CANCELED 状態を yield して終了
 
 ```ts
 // src/server/cli.ts
-import { createServer } from "./index.js";
-import { GeminiCliPlugin } from "../plugins/gemini-cli-plugin.js";
+import { createServer } from './index.js';
+import { GeminiCliPlugin } from '../plugins/gemini-cli-plugin.js';
 
 const server = await createServer({
   plugins: [new GeminiCliPlugin()],
-  config: await loadConfig("./opencode-a2a.config.json"),
+  config: await loadConfig('./opencode-a2a.config.json'),
   auth: { tokens: [process.env.A2A_BEARER_TOKEN!] },
 });
 await server.listen(3000);
@@ -437,7 +442,9 @@ export interface TaskStore {
   delete(id: string): Promise<void>;
 }
 
-export class InMemoryTaskStore implements TaskStore { /* Map<string, Task> */ }
+export class InMemoryTaskStore implements TaskStore {
+  /* Map<string, Task> */
+}
 ```
 
 - 既定は `InMemoryTaskStore`。将来 `SqliteTaskStore` や `RedisTaskStore` に差し替え可能。
@@ -475,15 +482,15 @@ export async function* runJsonLinesSubprocess(
 
 ```ts
 const GeminiConfigSchema = z.object({
-  cliPath: z.string().default("gemini"),
-  model: z.string().default("gemini-2.5-pro"),
+  cliPath: z.string().default('gemini'),
+  model: z.string().default('gemini-2.5-pro'),
   workingDir: z.string().optional(),
   apiKey: z.string().optional(),
 });
 
 export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
-  readonly id = "gemini-cli";
-  readonly version = "0.1.0";
+  readonly id = 'gemini-cli';
+  readonly version = '0.1.0';
   readonly configSchema = GeminiConfigSchema;
 
   private config!: GeminiConfig;
@@ -495,11 +502,14 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 
   async dispose(): Promise<void> {}
 
-  async *execute(message: Message, ctx: A2APluginContext): AsyncIterable<StreamResponse> {
+  async *execute(
+    message: Message,
+    ctx: A2APluginContext
+  ): AsyncIterable<StreamResponse> {
     const prompt = this.messageToPrompt(message);
     const proc = runJsonLinesSubprocess({
       cmd: this.config.cliPath,
-      args: ["--json", "--model", this.config.model, "-"],
+      args: ['--json', '--model', this.config.model, '-'],
       cwd: this.config.workingDir,
       env: this.config.apiKey ? { GEMINI_API_KEY: this.config.apiKey } : {},
       abortSignal: ctx.abortSignal,
@@ -514,16 +524,18 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
   metadata() {
     return {
       skill: {
-        id: "gemini-cli",
-        name: "Gemini CLI",
-        description: "Delegates to Google Gemini CLI",
-        tags: ["code", "chat", "search"],
-        examples: ["Generate a React component", "Summarize this file"],
+        id: 'gemini-cli',
+        name: 'Gemini CLI',
+        description: 'Delegates to Google Gemini CLI',
+        tags: ['code', 'chat', 'search'],
+        examples: ['Generate a React component', 'Summarize this file'],
       },
     };
   }
 
-  private messageToPrompt(m: Message): string { /* Part[] → string */ }
+  private messageToPrompt(m: Message): string {
+    /* Part[] → string */
+  }
   private parseGeminiEvent(raw: unknown): StreamResponse | null {
     // CLI固有イベント → A2A StreamResponse 変換
     // "thinking" は yield せず、ログのみ（ヘッドレス原則）
@@ -598,11 +610,11 @@ process.env  ──────────────┘         │
 
 ## 8. テスト戦略
 
-| 階層 | 対象 | カバレッジ目標 |
-| --- | --- | --- |
-| ユニット | `a2a-types.ts`、`task-runner.ts`、`registry.ts`、`config-loader.ts`、`subprocess.ts`（モック `spawn`） | 主要分岐 95%+ |
-| 統合 | `http-server.ts` のエンドポイント、SSE 応答、AgentCard、Bearer 拒否、`tasks/cancel` 伝搬 | 全エンドポイント |
-| E2E（任意） | `gemini-cli-plugin.ts` をダミー CLI（`echo`/`jq` 等）で模して実行 | ハッピーパスのみ |
+| 階層        | 対象                                                                                                   | カバレッジ目標   |
+| ----------- | ------------------------------------------------------------------------------------------------------ | ---------------- |
+| ユニット    | `a2a-types.ts`、`task-runner.ts`、`registry.ts`、`config-loader.ts`、`subprocess.ts`（モック `spawn`） | 主要分岐 95%+    |
+| 統合        | `http-server.ts` のエンドポイント、SSE 応答、AgentCard、Bearer 拒否、`tasks/cancel` 伝搬               | 全エンドポイント |
+| E2E（任意） | `gemini-cli-plugin.ts` をダミー CLI（`echo`/`jq` 等）で模して実行                                      | ハッピーパスのみ |
 
 `TaskRunner` は表駆動テストで状態遷移を網羅:
 
@@ -670,24 +682,24 @@ jobs:
 
 ## 12. 残余リスクと緩和策
 
-| リスク | 緩和策 |
-| --- | --- |
-| サブプロセスのゾンビ化 | `AbortSignal` で `SIGTERM` → 5 秒後 `SIGKILL`、親プロセス終了時も `detached: false` |
-| SSE 接続の長時間保持によるソケット枯渇 | Hono のストリーム完了ハンドラで確実にクローズ、`done` イベント送出 |
-| プラグイン初期化時のシークレット露出 | ログフォーマッタで `apiKey` 等キー名を自動マスク |
-| A2A v1.0.0 仕様の今後の変更 | `A2A_PROTOCOL_VERSION` 定数で明示、AgentCard にも記載 |
-| ストリーム途中失敗の冪等性問題 | 設計上「yield 後の失敗はリトライしない」ことを TaskRunner が強制 |
+| リスク                                 | 緩和策                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| サブプロセスのゾンビ化                 | `AbortSignal` で `SIGTERM` → 5 秒後 `SIGKILL`、親プロセス終了時も `detached: false` |
+| SSE 接続の長時間保持によるソケット枯渇 | Hono のストリーム完了ハンドラで確実にクローズ、`done` イベント送出                  |
+| プラグイン初期化時のシークレット露出   | ログフォーマッタで `apiKey` 等キー名を自動マスク                                    |
+| A2A v1.0.0 仕様の今後の変更            | `A2A_PROTOCOL_VERSION` 定数で明示、AgentCard にも記載                               |
+| ストリーム途中失敗の冪等性問題         | 設計上「yield 後の失敗はリトライしない」ことを TaskRunner が強制                    |
 
 ## 13. 設計上の主要判断サマリ
 
-| 判断事項 | 決定 | 根拠 |
-| --- | --- | --- |
-| 形態 | ハイブリッド（ライブラリ + 標準 HTTP サーバ同梱） | コアの再利用性を保ちつつ単独起動も可能に |
-| プラグインロード | 静的レジストリ + `defineA2APlugin()` 公開契約 | 型安全・デバッグ容易、将来のサードパーティ拡張にも対応 |
-| CLI 呼び出しモデル | 抽象 IF + `src/core/helpers/subprocess.ts` 共通ヘルパ | コアが特定通信モデルに縛られない、DRY も両立 |
-| ランタイム | Node.js 22 + pnpm + Vitest | エコシステム互換性・再現性最優先 |
-| HTTP 実装 | Hono + JSON-RPC 2.0 + SSE + AgentCard + Bearer | A2A v1.0.0 準拠、依存を最小化 |
-| 設定注入 | プログラマティック + `ConfigLoader`（JSON + env プレースホルダ） | ライブラリ利用とスタンドアローン利用の両立 |
-| タスク永続化 | `InMemoryTaskStore` 既定 + `TaskStore` 抽象 | 薄いラッパー用途に十分、拡張余地を残す |
-| `TaskState` 拡張 | `CANCELED` を追加（計 5 状態） | `tasks/cancel` 対応に必須 |
-| `StreamResponse` 表現 | `kind` による判別共用体 | 型安全性・ランタイム検証のしやすさ |
+| 判断事項              | 決定                                                             | 根拠                                                   |
+| --------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| 形態                  | ハイブリッド（ライブラリ + 標準 HTTP サーバ同梱）                | コアの再利用性を保ちつつ単独起動も可能に               |
+| プラグインロード      | 静的レジストリ + `defineA2APlugin()` 公開契約                    | 型安全・デバッグ容易、将来のサードパーティ拡張にも対応 |
+| CLI 呼び出しモデル    | 抽象 IF + `src/core/helpers/subprocess.ts` 共通ヘルパ            | コアが特定通信モデルに縛られない、DRY も両立           |
+| ランタイム            | Node.js 22 + pnpm + Vitest                                       | エコシステム互換性・再現性最優先                       |
+| HTTP 実装             | Hono + JSON-RPC 2.0 + SSE + AgentCard + Bearer                   | A2A v1.0.0 準拠、依存を最小化                          |
+| 設定注入              | プログラマティック + `ConfigLoader`（JSON + env プレースホルダ） | ライブラリ利用とスタンドアローン利用の両立             |
+| タスク永続化          | `InMemoryTaskStore` 既定 + `TaskStore` 抽象                      | 薄いラッパー用途に十分、拡張余地を残す                 |
+| `TaskState` 拡張      | `CANCELED` を追加（計 5 状態）                                   | `tasks/cancel` 対応に必須                              |
+| `StreamResponse` 表現 | `kind` による判別共用体                                          | 型安全性・ランタイム検証のしやすさ                     |

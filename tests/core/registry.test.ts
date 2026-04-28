@@ -1,124 +1,129 @@
-import { describe, it, expect } from "vitest";
-import { z } from "zod";
-import { PluginRegistry } from "../../src/core/registry.js";
-import type { A2APluginInterface } from "../../src/core/plugin-interface.js";
+import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
+import { PluginRegistry } from '../../src/core/registry.js';
+import type { A2APluginInterface } from '../../src/core/plugin-interface.js';
 
-function makePlugin(id: string, opts: { initSpy?: (c: unknown) => void } = {}): A2APluginInterface {
+function makePlugin(
+  id: string,
+  opts: { initSpy?: (c: unknown) => void } = {}
+): A2APluginInterface {
   return {
     id,
-    version: "0.0.1",
-    configSchema: z.object({ foo: z.string().default("bar") }),
+    version: '0.0.1',
+    configSchema: z.object({ foo: z.string().default('bar') }),
     async initialize(config) {
       opts.initSpy?.(config);
     },
     async dispose() {},
     async *execute() {},
-    metadata: () => ({ skills: [{ id, name: id, description: "" }] }),
+    metadata: () => ({ skills: [{ id, name: id, description: '' }] }),
   };
 }
 
-describe("PluginRegistry", () => {
-  it("register + get + list", () => {
+describe('PluginRegistry', () => {
+  it('register + get + list', () => {
     const reg = new PluginRegistry();
-    const p = makePlugin("gemini-cli");
+    const p = makePlugin('gemini-cli');
     reg.register(p);
-    expect(reg.get("gemini-cli")).toBe(p);
+    expect(reg.get('gemini-cli')).toBe(p);
     expect(reg.list()).toEqual([p]);
-    expect(reg.get("missing")).toBeUndefined();
+    expect(reg.get('missing')).toBeUndefined();
   });
 
-  it("throws on duplicate id", () => {
+  it('throws on duplicate id', () => {
     const reg = new PluginRegistry();
-    reg.register(makePlugin("a"));
-    expect(() => reg.register(makePlugin("a"))).toThrow(/duplicate/i);
+    reg.register(makePlugin('a'));
+    expect(() => reg.register(makePlugin('a'))).toThrow(/duplicate/i);
   });
 
-  it("initializeAll validates config via Zod and passes to plugin.initialize", async () => {
-    const reg = new PluginRegistry();
-    let seen: unknown;
-    reg.register(makePlugin("x", { initSpy: (c) => (seen = c) }));
-    await reg.initializeAll({ x: { foo: "hello" } });
-    expect(seen).toEqual({ foo: "hello" });
-  });
-
-  it("initializeAll applies schema defaults when keys missing", async () => {
+  it('initializeAll validates config via Zod and passes to plugin.initialize', async () => {
     const reg = new PluginRegistry();
     let seen: unknown;
-    reg.register(makePlugin("y", { initSpy: (c) => (seen = c) }));
+    reg.register(makePlugin('x', { initSpy: (c) => (seen = c) }));
+    await reg.initializeAll({ x: { foo: 'hello' } });
+    expect(seen).toEqual({ foo: 'hello' });
+  });
+
+  it('initializeAll applies schema defaults when keys missing', async () => {
+    const reg = new PluginRegistry();
+    let seen: unknown;
+    reg.register(makePlugin('y', { initSpy: (c) => (seen = c) }));
     await reg.initializeAll({});
-    expect(seen).toEqual({ foo: "bar" });
+    expect(seen).toEqual({ foo: 'bar' });
   });
 
-  it("initializeAll throws if config fails Zod validation", async () => {
+  it('initializeAll throws if config fails Zod validation', async () => {
     const reg = new PluginRegistry();
-    reg.register(makePlugin("z"));
+    reg.register(makePlugin('z'));
     await expect(reg.initializeAll({ z: { foo: 42 } })).rejects.toThrow();
   });
 
-  it("initializeAll treats explicit null as null and fails Zod validation if not allowed", async () => {
+  it('initializeAll treats explicit null as null and fails Zod validation if not allowed', async () => {
     const reg = new PluginRegistry();
-    reg.register(makePlugin("nulltest"));
+    reg.register(makePlugin('nulltest'));
     // Passing null should not be converted to {} and thus fail Zod validation
     await expect(
-      reg.initializeAll({ nulltest: null as unknown as Record<string, unknown> })
+      reg.initializeAll({
+        nulltest: null as unknown as Record<string, unknown>,
+      })
     ).rejects.toThrow();
   });
 
-  it("initializeAll rolls back (disposes) already initialized plugins on failure", async () => {
+  it('initializeAll rolls back (disposes) already initialized plugins on failure', async () => {
     const reg = new PluginRegistry();
     const state: string[] = [];
 
     const p1: A2APluginInterface = {
-      ...makePlugin("p1"),
+      ...makePlugin('p1'),
       async initialize() {
-        state.push("init-p1");
+        state.push('init-p1');
       },
       async dispose() {
-        state.push("dispose-p1");
+        state.push('dispose-p1');
       },
     };
     const p2: A2APluginInterface = {
-      ...makePlugin("p2"),
+      ...makePlugin('p2'),
       async initialize() {
-        state.push("init-p2");
-        throw new Error("p2-init-fail");
+        state.push('init-p2');
+        throw new Error('p2-init-fail');
       },
       async dispose() {
-        state.push("dispose-p2");
+        state.push('dispose-p2');
       },
     };
 
     reg.register(p1);
     reg.register(p2);
 
-    await expect(reg.initializeAll({})).rejects.toThrow("p2-init-fail");
+    await expect(reg.initializeAll({})).rejects.toThrow('p2-init-fail');
 
     // Order: p1 init, p2 init (fails), p1 dispose (rollback)
-    expect(state).toEqual(["init-p1", "init-p2", "dispose-p1"]);
+    expect(state).toEqual(['init-p1', 'init-p2', 'dispose-p1']);
   });
 
   it("disposeAll calls every plugin's dispose", async () => {
     const reg = new PluginRegistry();
     const disposed: string[] = [];
     const p1: A2APluginInterface = {
-      ...makePlugin("p1"),
-      dispose: async () => void disposed.push("p1"),
+      ...makePlugin('p1'),
+      dispose: async () => void disposed.push('p1'),
     };
     const p2: A2APluginInterface = {
-      ...makePlugin("p2"),
-      dispose: async () => void disposed.push("p2"),
+      ...makePlugin('p2'),
+      dispose: async () => void disposed.push('p2'),
     };
     reg.register(p1);
     reg.register(p2);
     await reg.disposeAll();
-    expect(disposed).toEqual(["p1", "p2"]);
+    expect(disposed).toEqual(['p1', 'p2']);
   });
 
-  it("initializeAll and disposeAll handle plugins without optional fields", async () => {
+  it('initializeAll and disposeAll handle plugins without optional fields', async () => {
     const reg = new PluginRegistry();
     const minimalPlugin: A2APluginInterface = {
-      id: "minimal",
-      version: "0.0.1",
+      id: 'minimal',
+      version: '0.0.1',
       async *execute() {},
       metadata: () => ({ skills: [] }),
     };
@@ -130,20 +135,20 @@ describe("PluginRegistry", () => {
     await expect(reg.disposeAll()).resolves.toBeUndefined();
   });
 
-  it("disposeAll continues on error and throws AggregateError", async () => {
+  it('disposeAll continues on error and throws AggregateError', async () => {
     const reg = new PluginRegistry();
     const disposed: string[] = [];
 
     const p1: A2APluginInterface = {
-      ...makePlugin("p1"),
+      ...makePlugin('p1'),
       dispose: async () => {
-        throw new Error("p1 fail");
+        throw new Error('p1 fail');
       },
     };
     const p2: A2APluginInterface = {
-      ...makePlugin("p2"),
+      ...makePlugin('p2'),
       dispose: async () => {
-        disposed.push("p2");
+        disposed.push('p2');
       },
     };
 
@@ -155,16 +160,16 @@ describe("PluginRegistry", () => {
     // Verify error collection and type
     try {
       await promise;
-      expect.fail("Should have thrown AggregateError");
+      expect.fail('Should have thrown AggregateError');
     } catch (err) {
       expect(err).toBeInstanceOf(AggregateError);
       const aggErr = err as AggregateError;
       expect(aggErr.message).toMatch(/One or more plugins failed to dispose/);
       expect(aggErr.errors).toHaveLength(1);
-      expect(aggErr.errors[0].message).toBe("p1 fail");
+      expect(aggErr.errors[0].message).toBe('p1 fail');
     }
 
     // Verify p2 was still disposed even though p1 failed
-    expect(disposed).toEqual(["p2"]);
+    expect(disposed).toEqual(['p2']);
   });
 });
