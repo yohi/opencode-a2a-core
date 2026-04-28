@@ -169,7 +169,7 @@ export interface A2APluginInterface<TConfig = unknown> {
     ctx: A2APluginContext
   ): AsyncIterable<StreamResponse>;
 
-  metadata(): { skill: A2APluginSkill };
+  metadata(): { skills: A2APluginSkill[] };
 }
 ```
 
@@ -418,6 +418,7 @@ TaskRunner が CANCELED 状態を yield して終了
 // src/server/cli.ts
 import { createServer } from './index.js';
 import { GeminiCliPlugin } from '../plugins/gemini-cli-plugin.js';
+import { loadConfig } from '../core/config-loader.js';
 
 const server = await createServer({
   plugins: [new GeminiCliPlugin()],
@@ -523,13 +524,15 @@ export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
 
   metadata() {
     return {
-      skill: {
-        id: 'gemini-cli',
-        name: 'Gemini CLI',
-        description: 'Delegates to Google Gemini CLI',
-        tags: ['code', 'chat', 'search'],
-        examples: ['Generate a React component', 'Summarize this file'],
-      },
+      skills: [
+        {
+          id: 'gemini-cli',
+          name: 'Gemini CLI',
+          description: 'Delegates to Google Gemini CLI',
+          tags: ['code', 'chat', 'search'],
+          examples: ['Generate a React component', 'Summarize this file'],
+        }
+      ],
     };
   }
 
