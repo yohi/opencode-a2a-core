@@ -30,6 +30,7 @@ describe('loadConfig Security', () => {
       >;
 
       // 1. プロトタイプが汚染されていないことを確認
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(({} as any).polluted).toBeUndefined();
 
       // 2. 返されたオブジェクトに悪意のある値が含まれていないことを確認

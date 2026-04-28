@@ -5,7 +5,6 @@ import {
   GeminiConfigSchema,
 } from '../../src/plugins/gemini-cli-plugin.js';
 import { silentLogger, drain, mkMessage } from '../core/_helpers.js';
-import type { StreamResponse } from '../../src/core/a2a-types.js';
 
 const FAKE_CLI = fileURLToPath(
   new URL('../fixtures/fake-gemini-cli.mjs', import.meta.url)
