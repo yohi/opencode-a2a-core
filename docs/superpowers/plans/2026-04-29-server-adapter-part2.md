@@ -496,12 +496,10 @@ async function handleMessageStream(
         await stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) });
       }
     } catch {
-      if (!taskId) {
-        await stream.writeSSE({
-          event: 'error',
-          data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
-        });
-      }
+      await stream.writeSSE({
+        event: 'error',
+        data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
+      });
     } finally {
       if (taskId) deps.activeAbortControllers.delete(taskId);
       c.req.raw.signal.removeEventListener('abort', onAbort);
