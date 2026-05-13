@@ -448,15 +448,11 @@ async function handleMessageSend(
     if (!taskId) {
       return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
     }
-    try {
-      const task = await deps.taskStore.get(taskId);
-      if (!task) {
-        return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task not found after failure'));
-      }
-      return c.json(rpcResult(id, task));
-    } catch {
-      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task store access failed'));
+    const task = await deps.taskStore.get(taskId);
+    if (!task) {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task not found after failure'));
     }
+    return c.json(rpcResult(id, task));
   } finally {
     if (taskId) deps.activeAbortControllers.delete(taskId);
     c.req.raw.signal.removeEventListener('abort', onAbort);
