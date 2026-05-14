@@ -51,9 +51,26 @@ describe('AgentCard endpoint', () => {
     const res = await app.request('/.well-known/agent.json');
     expect(res.status).toBe(200);
     const body = await res.json() as { name: string; capabilities: { streaming: boolean }; skills: unknown[] };
-    expect(body.name).toBe('echo');
+    expect(body.name).toBe('echo'); // Uses plugin.name
     expect(body.capabilities).toEqual({ streaming: true });
     expect(body.skills).toHaveLength(1);
+  });
+
+  it('allows overriding streaming capability', async () => {
+    const nonStreamingPlugin = {
+      ...plugin,
+      metadata: () => ({
+        skills: [],
+        capabilities: { streaming: false },
+      }),
+    };
+    const app = createA2AServer({
+      plugin: nonStreamingPlugin,
+      allowUnauthenticated: true,
+    });
+    const res = await app.request('/.well-known/agent.json');
+    const body = await res.json() as { capabilities: { streaming: boolean } };
+    expect(body.capabilities.streaming).toBe(false);
   });
 
   it('uses baseUrl when provided', async () => {
@@ -119,6 +136,23 @@ describe('AgentCard endpoint', () => {
       },
     });
     expect((await res2.json() as { url: string }).url).toBe('http://localhost');
+
+    // Malicious host with path or userinfo
+    const res3 = await app.request('/.well-known/agent.json', {
+      headers: {
+        'X-Forwarded-Proto': 'https',
+        'X-Forwarded-Host': 'evil.com/injected',
+      },
+    });
+    expect((await res3.json() as { url: string }).url).toBe('http://localhost');
+
+    const res4 = await app.request('/.well-known/agent.json', {
+      headers: {
+        'X-Forwarded-Proto': 'https',
+        'X-Forwarded-Host': 'user@evil.com',
+      },
+    });
+    expect((await res4.json() as { url: string }).url).toBe('http://localhost');
   });
 
   it('falls back to request.url origin', async () => {
