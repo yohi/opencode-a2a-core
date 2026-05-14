@@ -66,13 +66,13 @@ export function createRpcHandler(deps: ServerDependencies): Handler {
     try {
       switch (method) {
         case 'message/send':
-          return handleMessageSend(c, deps, id, params);
+          return await handleMessageSend(c, deps, id, params);
         case 'message/stream':
-          return handleMessageStream(c, deps, id, params);
+          return await handleMessageStream(c, deps, id, params);
         case 'tasks/get':
-          return handleTasksGet(c, deps, id, params);
+          return await handleTasksGet(c, deps, id, params);
         case 'tasks/cancel':
-          return handleTasksCancel(c, deps, id, params);
+          return await handleTasksCancel(c, deps, id, params);
         default:
           return c.json(
             rpcError(id, JSON_RPC_ERRORS.METHOD_NOT_FOUND, `Method not found: ${method}`)
@@ -127,7 +127,8 @@ async function handleMessageSend(
       return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task disappeared'));
     }
     return c.json(rpcResult(id, task));
-  } catch {
+  } catch (err) {
+    deps.logger.error('handleMessageSend failed', { taskId, id, err });
     if (!taskId) {
       return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error'));
     }
@@ -179,7 +180,8 @@ async function handleMessageStream(
         }
         await stream.writeSSE({ event: chunk.kind, data: JSON.stringify(chunk) });
       }
-    } catch {
+    } catch (err) {
+      deps.logger.error('handleMessageStream failed', { taskId, id, err });
       await stream.writeSSE({
         event: 'error',
         data: JSON.stringify(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error')),
@@ -255,5 +257,5 @@ async function handleTasksCancel(
     await new Promise((r) => setTimeout(r, interval));
   }
 
-  return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Timeout waiting for task to reach terminal state'));
+  return c.json(rpcError(id, JSON_RPC_ERRORS.CANCEL_TIMEOUT, 'Timeout waiting for task to reach terminal state'));
 }

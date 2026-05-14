@@ -181,15 +181,26 @@ describe('Integration flows', () => {
     
     // Read chunks until we find taskId and state is WORKING
     let taskId = '';
-    while (true) {
+    let buffer = '';
+    const decoder = new TextDecoder();
+    
+    outer: while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      const chunk = new TextDecoder().decode(value);
-      if (!taskId) {
-        const match = chunk.match(/"id":"([^"]+)"/);
-        if (match) taskId = match[1];
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop() || '';
+
+      for (const frame of frames) {
+        if (!taskId && frame.includes('event: task')) {
+          const dataMatch = frame.match(/data:\s*({.+})/);
+          if (dataMatch) {
+            const data = JSON.parse(dataMatch[1]);
+            taskId = data.task.id;
+          }
+        }
+        if (frame.includes('TASK_STATE_WORKING')) break outer;
       }
-      if (chunk.includes('TASK_STATE_WORKING')) break;
     }
 
     if (!taskId) throw new Error('Could not find taskId');
@@ -265,7 +276,8 @@ describe('Integration flows', () => {
       }),
     });
 
-    const body = (await res.json()) as { error: { message: string } };
+    const body = (await res.json()) as { error: { code: number; message: string } };
+    expect(body.error.code).toBe(JSON_RPC_ERRORS.CANCEL_TIMEOUT);
     expect(body.error.message).toContain('Timeout');
   }, 10000);
 });
