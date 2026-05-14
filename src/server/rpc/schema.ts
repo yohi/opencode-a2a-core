@@ -17,9 +17,6 @@ export const MessageSendParamsSchema = z.object({
 });
 export type MessageSendParams = z.infer<typeof MessageSendParamsSchema>;
 
-/**
- * Parameters for message streaming. Currently identical to MessageSendParams.
- */
 export const MessageStreamParamsSchema = z.object({
   message: MessageSchema,
   contextId: z.string().optional(),
@@ -44,4 +41,5 @@ export const JSON_RPC_ERRORS = {
   INTERNAL_ERROR: -32603,
   TASK_NOT_FOUND: -32001,
   TASK_CANCELED: -32002,
+  CANCEL_TIMEOUT: -32003,
 } as const;
