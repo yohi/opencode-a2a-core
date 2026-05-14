@@ -42,10 +42,27 @@ describe('bearerAuth middleware', () => {
     expect(body).toEqual({ ok: true });
   });
 
-  it('uses timing-safe comparison (does not leak length info)', async () => {
+  it('is case-insensitive for Bearer scheme', async () => {
     const res = await app.request('/test', {
-      headers: { Authorization: 'Bearer x' },
+      headers: { Authorization: 'bearer test-token-123' },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it.each([
+    { name: 'empty token', token: '' },
+    { name: 'shorter token', token: 'x' },
+    { name: 'same-length mismatched token', token: 'test-token-999' },
+    { name: 'longer token', token: 'test-token-123-extra' },
+  ])('rejects $name with 401', async ({ token }) => {
+    const res = await app.request('/test', {
+      headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(401);
+  });
+
+  it('throws error when initialized with empty token', () => {
+    expect(() => bearerAuth('')).toThrow('bearerAuth: expectedToken must be a non-empty string');
+    expect(() => bearerAuth('   ')).toThrow('bearerAuth: expectedToken must be a non-empty string');
   });
 });
