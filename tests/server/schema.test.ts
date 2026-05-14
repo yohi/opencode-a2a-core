@@ -28,6 +28,35 @@ describe('JsonRpcRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts valid request with null id', () => {
+    const result = JsonRpcRequestSchema.safeParse({
+      jsonrpc: '2.0',
+      id: null,
+      method: 'message/send',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts valid request with array params', () => {
+    const result = JsonRpcRequestSchema.safeParse({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'test',
+      params: [1, 2, 3],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects primitive params', () => {
+    const result = JsonRpcRequestSchema.safeParse({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'test',
+      params: 'invalid',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects notification (no id)', () => {
     const result = JsonRpcRequestSchema.safeParse({
       jsonrpc: '2.0',
@@ -76,6 +105,27 @@ describe('MessageSendParamsSchema', () => {
   });
 });
 
+describe('MessageStreamParamsSchema', () => {
+  it('accepts valid params', () => {
+    const result = MessageStreamParamsSchema.safeParse({
+      message: { role: 'ROLE_USER', parts: [{ kind: 'text', text: 'hello' }] },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid payload', () => {
+    const result = MessageStreamParamsSchema.safeParse({
+      invalid: 'field',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing message', () => {
+    const result = MessageStreamParamsSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('TasksGetParamsSchema', () => {
   it('accepts valid params', () => {
     const result = TasksGetParamsSchema.safeParse({ taskId: 'task-1' });
@@ -92,6 +142,11 @@ describe('TasksCancelParamsSchema', () => {
   it('accepts valid params', () => {
     const result = TasksCancelParamsSchema.safeParse({ taskId: 'task-1' });
     expect(result.success).toBe(true);
+  });
+
+  it('rejects missing taskId', () => {
+    const result = TasksCancelParamsSchema.safeParse({});
+    expect(result.success).toBe(false);
   });
 });
 

@@ -30,13 +30,13 @@ master
 
 ### Task Summary
 
-| Task | ファイル | 派生元 | 概要 |
-|------|---------|--------|------|
-| 1 | `src/server/rpc/schema.ts` | Base | JSON-RPC 2.0 Zod スキーマ + エラーコード定数 |
-| 2 | `src/server/middleware/auth.ts` | Base | timing-safe Bearer 認証ミドルウェア |
-| 3 | `src/server/rpc/handler.ts` | Task2 | JSON-RPC メソッドディスパッチャ (全4メソッド) |
-| 4 | `src/server/index.ts` | Task3 | `createA2AServer()` ファクトリ + AgentCard |
-| 5 | `tests/server/index.test.ts` (追加) | Task4 | stream/cancel 結合テスト + public export |
+| Task | ファイル                            | 派生元 | 概要                                          |
+| ---- | ----------------------------------- | ------ | --------------------------------------------- |
+| 1    | `src/server/rpc/schema.ts`          | Base   | JSON-RPC 2.0 Zod スキーマ + エラーコード定数  |
+| 2    | `src/server/middleware/auth.ts`     | Base   | timing-safe Bearer 認証ミドルウェア           |
+| 3    | `src/server/rpc/handler.ts`         | Task2  | JSON-RPC メソッドディスパッチャ (全4メソッド) |
+| 4    | `src/server/index.ts`               | Task3  | `createA2AServer()` ファクトリ + AgentCard    |
+| 5    | `tests/server/index.test.ts` (追加) | Task4  | stream/cancel 結合テスト + public export      |
 
 ### Plan Files
 
