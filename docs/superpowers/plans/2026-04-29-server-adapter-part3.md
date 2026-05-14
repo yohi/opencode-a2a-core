@@ -9,6 +9,7 @@
 **派生元:** `feature/phase1-task3_rpc-handler` (Task3) — handler + auth を組み合わせるファクトリ
 
 **Files:**
+
 - Create: `src/server/index.ts`
 - Test: `tests/server/index.test.ts`
 
@@ -24,7 +25,10 @@ describe('createA2AServer', () => {
   const plugin = createTestPlugin('echo', async function* () {
     yield {
       kind: 'status-update',
-      status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+      status: {
+        state: 'TASK_STATE_COMPLETED',
+        timestamp: new Date().toISOString(),
+      },
     };
   });
 
@@ -57,7 +61,10 @@ describe('AgentCard endpoint', () => {
   const plugin = createTestPlugin('echo', async function* () {
     yield {
       kind: 'status-update',
-      status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+      status: {
+        state: 'TASK_STATE_COMPLETED',
+        timestamp: new Date().toISOString(),
+      },
     };
   });
 
@@ -154,7 +161,10 @@ describe('Auth integration', () => {
   const plugin = createTestPlugin('echo', async function* () {
     yield {
       kind: 'status-update',
-      status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+      status: {
+        state: 'TASK_STATE_COMPLETED',
+        timestamp: new Date().toISOString(),
+      },
     };
   });
 
@@ -164,7 +174,9 @@ describe('Auth integration', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'tasks/get',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tasks/get',
         params: { taskId: 'x' },
       }),
     });
@@ -180,7 +192,9 @@ describe('Auth integration', () => {
         Authorization: 'Bearer secret',
       },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'tasks/get',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tasks/get',
         params: { taskId: 'nonexistent' },
       }),
     });
@@ -201,7 +215,10 @@ describe('message/send E2E', () => {
     const plugin = createTestPlugin('e2e', async function* () {
       yield {
         kind: 'status-update',
-        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+        status: {
+          state: 'TASK_STATE_COMPLETED',
+          timestamp: new Date().toISOString(),
+        },
       };
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -210,7 +227,9 @@ describe('message/send E2E', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'message/send',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/send',
         params: { message: mkMessage() },
       }),
     });
@@ -278,7 +297,9 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
   }
 
   if (!options.auth && options.allowUnauthenticated) {
-    logger.warn('Server running without authentication. Do not use in production.');
+    logger.warn(
+      'Server running without authentication. Do not use in production.'
+    );
   }
 
   const taskStore = options.taskStore ?? new InMemoryTaskStore();
@@ -347,8 +368,10 @@ function resolveBaseUrl(
       if (isValidProto && isValidHost) {
         return `${proto}://${firstHost}`;
       }
-      
-      logger?.warn(`Rejected invalid X-Forwarded headers: proto=${proto}, host=${host}`);
+
+      logger?.warn(
+        `Rejected invalid X-Forwarded headers: proto=${proto}, host=${host}`
+      );
     }
   }
 
@@ -386,6 +409,7 @@ git commit -m "feat(server): add createA2AServer factory with AgentCard endpoint
 **派生元:** `feature/phase1-task4_server-factory` (Task4) — ファクトリが必要
 
 **Files:**
+
 - Modify: `tests/server/index.test.ts` (追加テスト)
 
 - [ ] **Step 1: Add stream and cancel tests**
@@ -404,7 +428,9 @@ describe('message/stream E2E', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'message/stream',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/stream',
         params: { message: mkMessage() },
       }),
     });
@@ -418,7 +444,11 @@ describe('message/stream E2E', () => {
     const res = await app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'message/stream', params: { message: mkMessage() } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'message/stream',
+        params: { message: mkMessage() },
+      }),
     });
     const body = await res.json();
     expect(body.error.code).toBe(-32600);
@@ -434,7 +464,9 @@ describe('message/stream E2E', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'message/stream',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/stream',
         params: { message: mkMessage() },
       }),
     });
@@ -453,7 +485,9 @@ describe('tasks/cancel E2E', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'tasks/cancel',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tasks/cancel',
         params: { taskId: 'nonexistent' },
       }),
     });
@@ -473,7 +507,9 @@ describe('message/send error handling', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'message/send',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/send',
         params: { message: mkMessage() },
       }),
     });
@@ -486,7 +522,10 @@ describe('message/send error handling', () => {
     const plugin = createTestPlugin('cleanup', async function* () {
       yield {
         kind: 'status-update',
-        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+        status: {
+          state: 'TASK_STATE_COMPLETED',
+          timestamp: new Date().toISOString(),
+        },
       };
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -495,7 +534,9 @@ describe('message/send error handling', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'message/send',
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/send',
         params: { message: mkMessage() },
       }),
     });
@@ -504,7 +545,9 @@ describe('message/send error handling', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0', id: 2, method: 'message/send',
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'message/send',
         params: { message: mkMessage() },
       }),
     });
@@ -524,7 +567,12 @@ describe('edge cases and race conditions', () => {
     const reqPromise = app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: mkMessage() } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/send',
+        params: { message: mkMessage() },
+      }),
       signal: abortController.signal,
     });
 
@@ -542,7 +590,12 @@ describe('edge cases and race conditions', () => {
     const reqPromise = app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: { message: mkMessage() } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/stream',
+        params: { message: mkMessage() },
+      }),
       signal: abortController.signal,
     });
 
@@ -551,7 +604,10 @@ describe('edge cases and race conditions', () => {
   });
 
   it('message/send detects already-aborted signal', async () => {
-    const plugin = createTestPlugin('already-aborted-send', async function* () {});
+    const plugin = createTestPlugin(
+      'already-aborted-send',
+      async function* () {}
+    );
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
 
     const abortController = new AbortController();
@@ -560,14 +616,22 @@ describe('edge cases and race conditions', () => {
     const reqPromise = app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: mkMessage() } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/send',
+        params: { message: mkMessage() },
+      }),
       signal: abortController.signal,
     });
     await expect(reqPromise).rejects.toThrow();
   });
 
   it('message/stream detects already-aborted signal', async () => {
-    const plugin = createTestPlugin('already-aborted-stream', async function* () {});
+    const plugin = createTestPlugin(
+      'already-aborted-stream',
+      async function* () {}
+    );
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
 
     const abortController = new AbortController();
@@ -576,25 +640,41 @@ describe('edge cases and race conditions', () => {
     const reqPromise = app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: { message: mkMessage() } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/stream',
+        params: { message: mkMessage() },
+      }),
       signal: abortController.signal,
     });
     await expect(reqPromise).rejects.toThrow();
   });
 
   it('tasks/cancel returns TASK_CANCELED for already terminal task', async () => {
-    const plugin = createTestPlugin('cancel-already-terminal', async function* () {
-      yield {
-        kind: 'status-update',
-        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
-      };
-    });
+    const plugin = createTestPlugin(
+      'cancel-already-terminal',
+      async function* () {
+        yield {
+          kind: 'status-update',
+          status: {
+            state: 'TASK_STATE_COMPLETED',
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
+    );
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
 
     const resSend = await app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: mkMessage() } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/send',
+        params: { message: mkMessage() },
+      }),
     });
     const bodySend = await resSend.json();
     const taskId = bodySend.result.id;
@@ -602,7 +682,12 @@ describe('edge cases and race conditions', () => {
     const resCancel = await app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tasks/cancel',
+        params: { taskId },
+      }),
     });
     const bodyCancel = await resCancel.json();
     expect(bodyCancel.error.code).toBe(-32002); // TASK_CANCELED returned when already terminal
@@ -617,14 +702,20 @@ describe('edge cases and race conditions', () => {
     const plugin = createTestPlugin('cancel-race', async function* () {
       yield {
         kind: 'status-update',
-        status: { state: 'TASK_STATE_IN_PROGRESS', timestamp: new Date().toISOString() },
+        status: {
+          state: 'TASK_STATE_IN_PROGRESS',
+          timestamp: new Date().toISOString(),
+        },
       };
-      
+
       await taskPromise;
-      
+
       yield {
         kind: 'status-update',
-        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() },
+        status: {
+          state: 'TASK_STATE_COMPLETED',
+          timestamp: new Date().toISOString(),
+        },
       };
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -632,13 +723,18 @@ describe('edge cases and race conditions', () => {
     const resStream = await app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: { message: mkMessage() } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/stream',
+        params: { message: mkMessage() },
+      }),
     });
-    
+
     const reader = resStream.body!.getReader();
     const decoder = new TextDecoder();
     let taskId = '';
-    
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -654,12 +750,17 @@ describe('edge cases and race conditions', () => {
       }
       if (taskId) break;
     }
-    
+
     // Send cancel request, but do not await yet
     const cancelReqPromise = app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tasks/cancel',
+        params: { taskId },
+      }),
     });
 
     // Simulate task completing just as cancel is processing
@@ -671,7 +772,7 @@ describe('edge cases and race conditions', () => {
     // The result should be the successfully completed task
     expect(bodyCancel.result).toBeDefined();
     expect(bodyCancel.result.status.state).toBe('TASK_STATE_COMPLETED');
-    
+
     await reader.cancel();
   });
 });
@@ -694,7 +795,10 @@ pnpm test
 
 ```typescript
 // src/index.ts — append this line
-export { createA2AServer, type CreateA2AServerOptions } from './server/index.js';
+export {
+  createA2AServer,
+  type CreateA2AServerOptions,
+} from './server/index.js';
 ```
 
 - [ ] **Step 5: Re-run full suite**
