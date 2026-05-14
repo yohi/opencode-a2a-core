@@ -24,6 +24,8 @@ describe('bearerAuth middleware', () => {
       headers: { Authorization: 'Bearer wrong-token' },
     });
     expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body).toHaveProperty('error');
   });
 
   it('returns 401 for non-Bearer scheme', async () => {
@@ -31,6 +33,8 @@ describe('bearerAuth middleware', () => {
       headers: { Authorization: 'Basic dXNlcjpwYXNz' },
     });
     expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body).toHaveProperty('error');
   });
 
   it('passes through with correct token', async () => {
@@ -59,6 +63,8 @@ describe('bearerAuth middleware', () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body).toHaveProperty('error');
   });
 
   it('throws error when initialized with empty token', () => {
