@@ -58,6 +58,7 @@ pnpm add hono
 **派生元:** `feature/phase1_server-adapter__base` (Base) — 他タスクに依存しない独立モジュール
 
 **Files:**
+
 - Create: `src/server/rpc/schema.ts`
 - Test: `tests/server/schema.test.ts`
 
