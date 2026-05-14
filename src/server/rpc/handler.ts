@@ -55,20 +55,34 @@ export function createRpcHandler(deps: ServerDependencies): Handler {
     }
     const { method, params, id } = parsed.data;
 
-    // 3. Method dispatch (id is guaranteed present by schema validation)
-    switch (method) {
-      case 'message/send':
-        return handleMessageSend(c, deps, id, params);
-      case 'message/stream':
-        return handleMessageStream(c, deps, id, params);
-      case 'tasks/get':
-        return handleTasksGet(c, deps, id, params);
-      case 'tasks/cancel':
-        return handleTasksCancel(c, deps, id, params);
-      default:
-        return c.json(
-          rpcError(id, JSON_RPC_ERRORS.METHOD_NOT_FOUND, `Method not found: ${method}`)
-        );
+    // 3. id が null の場合は通知（notification）として拒否する
+    if (id === null) {
+      return c.json(
+        rpcError(null, JSON_RPC_ERRORS.INVALID_REQUEST, 'Notifications (id: null) are not supported')
+      );
+    }
+
+    // 4. Method dispatch
+    try {
+      switch (method) {
+        case 'message/send':
+          return handleMessageSend(c, deps, id, params);
+        case 'message/stream':
+          return handleMessageStream(c, deps, id, params);
+        case 'tasks/get':
+          return handleTasksGet(c, deps, id, params);
+        case 'tasks/cancel':
+          return handleTasksCancel(c, deps, id, params);
+        default:
+          return c.json(
+            rpcError(id, JSON_RPC_ERRORS.METHOD_NOT_FOUND, `Method not found: ${method}`)
+          );
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      return c.json(
+        rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, `Internal error: ${errorMessage}`)
+      );
     }
   };
 }
@@ -120,6 +134,11 @@ async function handleMessageSend(
     const task = await deps.taskStore.get(taskId);
     if (!task) {
       return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task not found after failure'));
+    }
+    if (task.status.state === 'TASK_STATE_FAILED') {
+      const part = task.status.message?.parts?.[0];
+      const errorMessage = (part?.kind === 'text') ? part.text : 'Task failed';
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, errorMessage));
     }
     return c.json(rpcResult(id, task));
   } finally {
@@ -211,7 +230,7 @@ async function handleTasksCancel(
     const isTerminal = TERMINAL_STATES.has(task.status.state);
     if (isTerminal) {
       return c.json(
-        rpcError(id, JSON_RPC_ERRORS.TASK_CANCELED, 'Task is already in terminal state and cannot be canceled')
+        rpcError(id, JSON_RPC_ERRORS.INVALID_REQUEST, 'Task is already in terminal state and cannot be canceled')
       );
     }
     return c.json(
