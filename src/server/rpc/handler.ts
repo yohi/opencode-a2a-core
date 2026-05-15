@@ -225,7 +225,13 @@ async function handleTasksCancel(
   if (!ac) {
     const isTerminal = TERMINAL_STATES.has(task.status.state);
     if (isTerminal) {
-      return c.json(rpcResult(id, task));
+      return c.json(
+        rpcError(
+          id,
+          JSON_RPC_ERRORS.TASK_CANCELED,
+          'Task is already in terminal state and cannot be canceled'
+        )
+      );
     }
     return c.json(
       rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Abort controller missing for non-terminal task')
