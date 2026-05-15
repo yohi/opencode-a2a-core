@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createA2AServer } from '../../src/server/index.js';
+import { JSON_RPC_ERRORS } from '../../src/server/rpc/schema.js';
 import { createTestPlugin, mkMessage, silentLogger } from './_helpers.js';
 
 describe('createA2AServer', () => {
@@ -451,7 +452,7 @@ describe('edge cases and race conditions', () => {
     expect(res.status).toBe(200);
   });
 
-  it('tasks/cancel returns task state for already terminal task', async () => {
+  it('tasks/cancel returns TASK_NOT_CANCELABLE error for already terminal task', async () => {
     const plugin = createTestPlugin('cancel-already-terminal', async function* () {
       yield {
         kind: 'status-update',
@@ -473,8 +474,9 @@ describe('edge cases and race conditions', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
     });
-    const bodyCancel = await resCancel.json() as { result: { status: { state: string } } };
-    expect(bodyCancel.result.status.state).toBe('TASK_STATE_COMPLETED'); // Returns current state instead of TASK_CANCELED error
+    const bodyCancel = await resCancel.json() as { error: { code: number; message: string } };
+    expect(bodyCancel.error).toBeDefined();
+    expect(bodyCancel.error.code).toBe(-32003); // JSON_RPC_ERRORS.TASK_NOT_CANCELABLE
   });
 
   it('tasks/cancel returns COMPLETED task if it completes during cancellation race', async () => {
@@ -558,10 +560,12 @@ describe('edge cases and race conditions', () => {
     // The result should be the successfully completed task
     // or if cancel won the race, the canceled task
     if ('result' in bodyCancel) {
-      expect(bodyCancel.result.status.state).toMatch(/WORKING|COMPLETED|CANCELED/);
+      expect(['TASK_STATE_COMPLETED', 'TASK_STATE_CANCELED', 'TASK_STATE_FAILED']).toContain(
+        bodyCancel.result.status.state
+      );
     } else if ('error' in bodyCancel) {
       // Cancel might have completed first, or task might have already finished
-      expect([-32002, -32004]).toContain(bodyCancel.error.code);
+      expect(bodyCancel.error.code).toBe(JSON_RPC_ERRORS.TASK_NOT_CANCELABLE);
     } else {
       throw new Error(`Unexpected response format: ${JSON.stringify(bodyCancel)}`);
     }

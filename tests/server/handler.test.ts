@@ -235,7 +235,7 @@ describe('Integration flows', () => {
     if ('error' in body) {
       throw new Error(`RPC Error: ${JSON.stringify(body.error)}`);
     }
-    expect(body.result.status.state).toMatch(/WORKING|CANCELED/);
+    expect(['TASK_STATE_CANCELED', 'TASK_STATE_FAILED']).toContain(body.result.status.state);
     for (let i = 0; i < 50; i++) {
       if (aborted) break;
       await new Promise((r) => setTimeout(r, 10));
@@ -244,12 +244,16 @@ describe('Integration flows', () => {
     await restPromise;
     reader.releaseLock();
   }, 10000);
-
-  it('tasks/cancel returns TASK_STATE_COMPLETED for already terminal task', async () => {
+  it.each([
+    'TASK_STATE_COMPLETED',
+    'TASK_STATE_FAILED',
+    'TASK_STATE_CANCELED',
+  ] as const)('tasks/cancel returns TASK_NOT_CANCELABLE error for already %s task', async (state) => {
     const { app, deps } = setupApp();
+
     const task = await deps.taskStore.create({});
     await deps.taskStore.updateStatus(task.id, {
-      state: 'TASK_STATE_COMPLETED',
+      state,
       timestamp: new Date().toISOString(),
     });
 
@@ -264,9 +268,9 @@ describe('Integration flows', () => {
       }),
     });
 
-    const body = (await res.json()) as { result: { status: { state: string } } };
-    expect(body.result.status.state).toBe('TASK_STATE_COMPLETED');
+    const body = (await res.json()) as { error: { code: number; message: string } };
+    expect(body.error.code).toBe(JSON_RPC_ERRORS.TASK_NOT_CANCELABLE);
+    expect(body.error.message).toContain(`(${state})`);
   });
-
 
 });

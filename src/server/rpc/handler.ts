@@ -221,11 +221,29 @@ async function handleTasksCancel(
     return c.json(rpcError(id, JSON_RPC_ERRORS.TASK_NOT_FOUND, 'Task not found'));
   }
 
+  const isTerminal = TERMINAL_STATES.has(task.status.state);
+  if (isTerminal) {
+    return c.json(
+      rpcError(
+        id,
+        JSON_RPC_ERRORS.TASK_NOT_CANCELABLE,
+        `Task is already in terminal state (${task.status.state}) and cannot be canceled`
+      )
+    );
+  }
+
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
-    const isTerminal = TERMINAL_STATES.has(task.status.state);
-    if (isTerminal) {
-      return c.json(rpcResult(id, task));
+    // Re-check task status to handle race where it might have finished just now
+    const latestTask = await deps.taskStore.get(parsed.data.taskId);
+    if (latestTask && TERMINAL_STATES.has(latestTask.status.state)) {
+      return c.json(
+        rpcError(
+          id,
+          JSON_RPC_ERRORS.TASK_NOT_CANCELABLE,
+          `Task is already in terminal state (${latestTask.status.state}) and cannot be canceled`
+        )
+      );
     }
     return c.json(
       rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Abort controller missing for non-terminal task')
@@ -234,10 +252,27 @@ async function handleTasksCancel(
 
   ac.abort();
 
-  const current = await deps.taskStore.get(parsed.data.taskId);
-  if (!current) {
-    return c.json(rpcError(id, JSON_RPC_ERRORS.TASK_NOT_FOUND, 'Task not found after abort'));
+  // Poll for terminal state
+  const maxWait = 5000;
+  const interval = 100;
+  const start = Date.now();
+  let currentTask = task;
+
+  while (Date.now() - start < maxWait) {
+    if (c.req.raw.signal.aborted) {
+      // Client disconnected, no use returning a response
+      return new Response(null, { status: 499 });
+    }
+    const current = await deps.taskStore.get(parsed.data.taskId);
+    if (current) {
+      currentTask = current;
+      if (TERMINAL_STATES.has(current.status.state)) {
+        return c.json(rpcResult(id, current));
+      }
+    }
+    await new Promise((r) => setTimeout(r, interval));
   }
 
-  return c.json(rpcResult(id, current));
+  // Timeout reached, return the latest state we have
+  return c.json(rpcResult(id, currentTask));
 }
