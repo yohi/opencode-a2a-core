@@ -30,4 +30,6 @@ Use `pnpm` for package management. All execution must be done inside the Devcont
 - **Strict Typing**: Rely on Zod schemas in `src/core/a2a-types.ts` and `src/server/rpc/schema.ts`. Do not bypass TypeScript constraints.
 - **No Rule Duplication**: Do not duplicate architecture rules in this file.
 - **Deep Dives**: Read [`SPEC.md`](./SPEC.md) before modifying core logic, server, or plugins.
-- **Linters over Instructions**: Run `pnpm lint` and `pnpm typecheck` to verify your code. Fix any errors they report.
+- **Linting**: Run `pnpm lint` to verify your code.
+- **Typechecking**: Run `pnpm typecheck` to verify your types.
+- **Error Fixing**: Fix any errors reported by linting or typechecking tools.
