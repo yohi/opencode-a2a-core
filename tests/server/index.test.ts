@@ -559,10 +559,12 @@ describe('edge cases and race conditions', () => {
     // The result should be the successfully completed task
     // or if cancel won the race, the canceled task
     if ('result' in bodyCancel) {
-      expect(bodyCancel.result.status.state).toMatch(/COMPLETED|CANCELED|FAILED/);
+      expect(['TASK_STATE_COMPLETED', 'TASK_STATE_CANCELED', 'TASK_STATE_FAILED']).toContain(
+        bodyCancel.result.status.state
+      );
     } else if ('error' in bodyCancel) {
       // Cancel might have completed first, or task might have already finished
-      expect(bodyCancel.error.code).toBe(-32003); // TASK_NOT_CANCELABLE
+      expect(bodyCancel.error.code).toBe(JSON_RPC_ERRORS.TASK_NOT_CANCELABLE);
     } else {
       throw new Error(`Unexpected response format: ${JSON.stringify(bodyCancel)}`);
     }

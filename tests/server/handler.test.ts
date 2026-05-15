@@ -269,7 +269,7 @@ describe('Integration flows', () => {
     });
 
     const body = (await res.json()) as { error: { code: number; message: string } };
-    expect(body.error.code).toBe(-32003);
+    expect(body.error.code).toBe(JSON_RPC_ERRORS.TASK_NOT_CANCELABLE);
     expect(body.error.message).toContain(`(${state})`);
   });
 

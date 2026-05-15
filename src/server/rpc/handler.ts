@@ -234,6 +234,17 @@ async function handleTasksCancel(
 
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
+    // Re-check task status to handle race where it might have finished just now
+    const latestTask = await deps.taskStore.get(parsed.data.taskId);
+    if (latestTask && TERMINAL_STATES.has(latestTask.status.state)) {
+      return c.json(
+        rpcError(
+          id,
+          JSON_RPC_ERRORS.TASK_NOT_CANCELABLE,
+          `Task is already in terminal state (${latestTask.status.state}) and cannot be canceled`
+        )
+      );
+    }
     return c.json(
       rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Abort controller missing for non-terminal task')
     );
