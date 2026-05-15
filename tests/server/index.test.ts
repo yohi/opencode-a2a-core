@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createA2AServer } from '../../src/server/index.js';
+import { JSON_RPC_ERRORS } from '../../src/server/rpc/schema.js';
 import { createTestPlugin, mkMessage, silentLogger } from './_helpers.js';
 
 describe('createA2AServer', () => {
