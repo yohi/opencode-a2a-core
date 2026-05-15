@@ -241,10 +241,22 @@ async function handleTasksCancel(
 
   ac.abort();
 
-  const current = await deps.taskStore.get(parsed.data.taskId);
-  if (!current) {
-    return c.json(rpcError(id, JSON_RPC_ERRORS.TASK_NOT_FOUND, 'Task not found after abort'));
+  // Poll for terminal state
+  const maxWait = 5000;
+  const interval = 50;
+  const start = Date.now();
+  while (Date.now() - start < maxWait) {
+    if (c.req.raw.signal.aborted) {
+      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Client disconnected'));
+    }
+    const current = await deps.taskStore.get(parsed.data.taskId);
+    if (current && TERMINAL_STATES.has(current.status.state)) {
+      return c.json(rpcResult(id, current));
+    }
+    await new Promise((r) => setTimeout(r, interval));
   }
 
-  return c.json(rpcResult(id, current));
+  return c.json(
+    rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Timeout waiting for task to reach terminal state')
+  );
 }

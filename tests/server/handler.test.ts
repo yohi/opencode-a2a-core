@@ -235,7 +235,7 @@ describe('Integration flows', () => {
     if ('error' in body) {
       throw new Error(`RPC Error: ${JSON.stringify(body.error)}`);
     }
-    expect(body.result.status.state).toMatch(/WORKING|CANCELED/);
+    expect(['TASK_STATE_CANCELED', 'TASK_STATE_FAILED']).toContain(body.result.status.state);
     for (let i = 0; i < 50; i++) {
       if (aborted) break;
       await new Promise((r) => setTimeout(r, 10));
