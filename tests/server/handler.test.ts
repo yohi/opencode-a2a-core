@@ -244,12 +244,16 @@ describe('Integration flows', () => {
     await restPromise;
     reader.releaseLock();
   }, 10000);
-  it('tasks/cancel returns TASK_CANCELED error for already terminal task', async () => {
+  it.each([
+    'TASK_STATE_COMPLETED',
+    'TASK_STATE_FAILED',
+    'TASK_STATE_CANCELED',
+  ] as const)('tasks/cancel returns TASK_CANCELED error for already %s task', async (state) => {
     const { app, deps } = setupApp();
 
     const task = await deps.taskStore.create({});
     await deps.taskStore.updateStatus(task.id, {
-      state: 'TASK_STATE_COMPLETED',
+      state,
       timestamp: new Date().toISOString(),
     });
 
@@ -264,8 +268,9 @@ describe('Integration flows', () => {
       }),
     });
 
-    const body = (await res.json()) as { error: { code: number } };
+    const body = (await res.json()) as { error: { code: number; message: string } };
     expect(body.error.code).toBe(-32002);
+    expect(body.error.message).toContain(`(${state})`);
   });
 
 });
