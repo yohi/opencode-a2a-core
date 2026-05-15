@@ -18,6 +18,7 @@ export type GeminiConfig = z.infer<typeof GeminiConfigSchema>;
 
 export class GeminiCliPlugin implements A2APluginInterface<GeminiConfig> {
   readonly id = 'gemini-cli';
+  readonly name = 'Gemini CLI Plugin';
   readonly version = '0.1.0';
   readonly configSchema = GeminiConfigSchema;
 

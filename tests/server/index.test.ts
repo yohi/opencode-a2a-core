@@ -51,9 +51,26 @@ describe('AgentCard endpoint', () => {
     const res = await app.request('/.well-known/agent.json');
     expect(res.status).toBe(200);
     const body = await res.json() as { name: string; capabilities: { streaming: boolean }; skills: unknown[] };
-    expect(body.name).toBe('echo');
+    expect(body.name).toBe('echo'); // Uses plugin.name
     expect(body.capabilities).toEqual({ streaming: true });
     expect(body.skills).toHaveLength(1);
+  });
+
+  it('allows overriding streaming capability', async () => {
+    const nonStreamingPlugin = {
+      ...plugin,
+      metadata: () => ({
+        skills: [],
+        capabilities: { streaming: false },
+      }),
+    };
+    const app = createA2AServer({
+      plugin: nonStreamingPlugin,
+      allowUnauthenticated: true,
+    });
+    const res = await app.request('/.well-known/agent.json');
+    const body = await res.json() as { capabilities: { streaming: boolean } };
+    expect(body.capabilities.streaming).toBe(false);
   });
 
   it('uses baseUrl when provided', async () => {
@@ -119,6 +136,23 @@ describe('AgentCard endpoint', () => {
       },
     });
     expect((await res2.json() as { url: string }).url).toBe('http://localhost');
+
+    // Malicious host with path or userinfo
+    const res3 = await app.request('/.well-known/agent.json', {
+      headers: {
+        'X-Forwarded-Proto': 'https',
+        'X-Forwarded-Host': 'evil.com/injected',
+      },
+    });
+    expect((await res3.json() as { url: string }).url).toBe('http://localhost');
+
+    const res4 = await app.request('/.well-known/agent.json', {
+      headers: {
+        'X-Forwarded-Proto': 'https',
+        'X-Forwarded-Host': 'user@evil.com',
+      },
+    });
+    expect((await res4.json() as { url: string }).url).toBe('http://localhost');
   });
 
   it('falls back to request.url origin', async () => {
@@ -169,6 +203,22 @@ describe('Auth integration', () => {
     expect(res.status).toBe(200);
     const body = await res.json() as { error: { code: number } };
     expect(body.error.code).toBe(-32001); // TASK_NOT_FOUND
+  });
+
+  it('allows authenticated RPC requests with trimmed token even if configured with whitespace', async () => {
+    const app = createA2AServer({ plugin, auth: { token: '  secret-with-whitespace  ' } });
+    const res = await app.request('/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer secret-with-whitespace',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'tasks/get',
+        params: { taskId: 'nonexistent' },
+      }),
+    });
+    expect(res.status).toBe(200);
   });
 
   it('AgentCard does not require auth', async () => {
