@@ -226,7 +226,7 @@ async function handleTasksCancel(
     return c.json(
       rpcError(
         id,
-        JSON_RPC_ERRORS.TASK_CANCELED,
+        JSON_RPC_ERRORS.TASK_NOT_CANCELABLE,
         `Task is already in terminal state (${task.status.state}) and cannot be canceled`
       )
     );
@@ -241,10 +241,27 @@ async function handleTasksCancel(
 
   ac.abort();
 
-  const current = await deps.taskStore.get(parsed.data.taskId);
-  if (!current) {
-    return c.json(rpcError(id, JSON_RPC_ERRORS.TASK_NOT_FOUND, 'Task not found after abort'));
+  // Poll for terminal state
+  const maxWait = 5000;
+  const interval = 100;
+  const start = Date.now();
+  let currentTask = task;
+
+  while (Date.now() - start < maxWait) {
+    if (c.req.raw.signal.aborted) {
+      // Client disconnected, no use returning a response
+      return new Response(null, { status: 499 });
+    }
+    const current = await deps.taskStore.get(parsed.data.taskId);
+    if (current) {
+      currentTask = current;
+      if (TERMINAL_STATES.has(current.status.state)) {
+        return c.json(rpcResult(id, current));
+      }
+    }
+    await new Promise((r) => setTimeout(r, interval));
   }
 
-  return c.json(rpcResult(id, current));
+  // Timeout reached, return the latest state we have
+  return c.json(rpcResult(id, currentTask));
 }

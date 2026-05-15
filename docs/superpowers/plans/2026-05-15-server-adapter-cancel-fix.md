@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Fix `TASK_CANCELED` error behavior for already terminal tasks
+## Task 1: Fix `TASK_CANCELED` error behavior for already terminal tasks
 
 **Files:**
 - Modify: `tests/server/index.test.ts`
@@ -22,7 +22,7 @@
 該当テスト `'tasks/cancel returns task state for already terminal task'` を以下に置き換えてください。
 
 ```typescript
-  it('tasks/cancel returns TASK_CANCELED error for already terminal task', async () => {
+  it('tasks/cancel returns TASK_NOT_CANCELABLE error for already terminal task', async () => {
     const plugin = createTestPlugin('cancel-already-terminal', async function* () {
       yield {
         kind: 'status-update',
@@ -46,7 +46,7 @@
     });
     const bodyCancel = await resCancel.json() as { error: { code: number; message: string } };
     expect(bodyCancel.error).toBeDefined();
-    expect(bodyCancel.error.code).toBe(-32002); // JSON_RPC_ERRORS.TASK_CANCELED
+    expect(bodyCancel.error.code).toBe(-32003); // JSON_RPC_ERRORS.TASK_NOT_CANCELABLE
   });
 ```
 
@@ -69,7 +69,7 @@ Expected: FAIL (現状は正常レスポンスが返るため)
       return c.json(
         rpcError(
           id,
-          JSON_RPC_ERRORS.TASK_CANCELED,
+          JSON_RPC_ERRORS.TASK_NOT_CANCELABLE,
           'Task is already in terminal state and cannot be canceled'
         )
       );
@@ -96,7 +96,7 @@ git commit -m "fix(server): return TASK_CANCELED error for already terminal task
 
 ---
 
-### Task 2: Implement terminal state polling for task cancellation
+## Task 2: Implement terminal state polling for task cancellation
 
 **Files:**
 - Modify: `tests/server/index.test.ts`
@@ -113,7 +113,7 @@ git commit -m "fix(server): return TASK_CANCELED error for already terminal task
       expect(bodyCancel.result.status.state).toMatch(/COMPLETED|CANCELED|FAILED/);
     } else if ('error' in bodyCancel) {
       // Cancel might have completed first, or task might have already finished
-      expect([-32002, -32004]).toContain(bodyCancel.error.code);
+      expect(bodyCancel.error.code).toBe(-32003); // TASK_NOT_CANCELABLE
     } else {
       throw new Error(`Unexpected response format: ${JSON.stringify(bodyCancel)}`);
     }
@@ -136,22 +136,26 @@ Expected: FAIL (現状は `ac.abort()` 直後の `WORKING` 状態がそのまま
 
   // Poll for terminal state
   const maxWait = 5000;
-  const interval = 50;
+  const interval = 100;
   const start = Date.now();
+  let currentTask = task;
   while (Date.now() - start < maxWait) {
     if (c.req.raw.signal.aborted) {
-      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Client disconnected'));
+      // Client disconnected, no use returning a response
+      return new Response(null, { status: 499 });
     }
     const current = await deps.taskStore.get(parsed.data.taskId);
-    if (current && TERMINAL_STATES.has(current.status.state)) {
-      return c.json(rpcResult(id, current));
+    if (current) {
+      currentTask = current;
+      if (TERMINAL_STATES.has(current.status.state)) {
+        return c.json(rpcResult(id, current));
+      }
     }
     await new Promise((r) => setTimeout(r, interval));
   }
 
-  return c.json(
-    rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Timeout waiting for task to reach terminal state')
-  );
+  // Timeout reached, return the latest state we have
+  return c.json(rpcResult(id, currentTask));
 }
 ```
 
