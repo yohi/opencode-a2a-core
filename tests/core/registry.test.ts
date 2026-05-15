@@ -9,6 +9,7 @@ function makePlugin(
 ): A2APluginInterface {
   return {
     id,
+    name: id,
     version: '0.0.1',
     configSchema: z.object({ foo: z.string().default('bar') }),
     async initialize(config) {
@@ -123,6 +124,7 @@ describe('PluginRegistry', () => {
     const reg = new PluginRegistry();
     const minimalPlugin: A2APluginInterface = {
       id: 'minimal',
+      name: 'minimal',
       version: '0.0.1',
       async *execute() {},
       metadata: () => ({ skills: [] }),

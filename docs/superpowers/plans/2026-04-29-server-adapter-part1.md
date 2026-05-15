@@ -58,10 +58,11 @@ pnpm add hono
 **派生元:** `feature/phase1_server-adapter__base` (Base) — 他タスクに依存しない独立モジュール
 
 **Files:**
+
 - Create: `src/server/rpc/schema.ts`
 - Test: `tests/server/schema.test.ts`
 
-- [ ] **Step 1: Write the failing test for schema**
+- [x] **Step 1: Write the failing test for schema**
 
 ```typescript
 // tests/server/schema.test.ts
@@ -175,12 +176,12 @@ describe('JSON_RPC_ERRORS', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/schema.test.ts`
 Expected: FAIL — モジュールが存在しない
 
-- [ ] **Step 3: Write implementation**
+- [x] **Step 3: Write implementation**
 
 ```typescript
 // src/server/rpc/schema.ts
@@ -224,25 +225,25 @@ export const JSON_RPC_ERRORS = {
 } as const;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/schema.test.ts`
 Expected: ALL PASS
 
-- [ ] **Step 5: Lint and Typecheck (Devcontainer内)**
+- [x] **Step 5: Lint and Typecheck (Devcontainer内)**
 
 ```bash
 pnpm lint
 pnpm typecheck
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/server/rpc/schema.ts tests/server/schema.test.ts
 git commit -m "feat(server): add JSON-RPC 2.0 Zod schema definitions"
 ```
 
-- [ ] **Step 7: Draft PR to Phase Base**
+- [x] **Step 7: Draft PR to Phase Base**
 
 `feature/phase1-task1_rpc-schema` → `feature/phase1_server-adapter__base` へ Draft PR を作成。

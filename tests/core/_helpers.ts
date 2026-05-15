@@ -18,18 +18,19 @@ export function mkMessage(): Message {
 
 export function mkPlugin(
   id: string,
-  exec: (
+  executeFn: (
     msg: Message,
-    ctx: { abortSignal: AbortSignal }
+    ctx: { abortSignal: AbortSignal; logger: Logger; taskId: string; contextId?: string }
   ) => AsyncIterable<StreamResponse>
 ): A2APluginInterface {
   return {
     id,
-    version: '0.0.1',
+    name: id,
+    version: '1.0.0',
     configSchema: z.object({}).passthrough(),
     async initialize() {},
     async dispose() {},
-    execute: exec,
+    execute: executeFn,
     metadata: () => ({ skills: [{ id, name: id, description: '' }] }),
   };
 }
