@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `tasks/cancel` エンドポイントの実装において、すでに終端状態のタスクに対するエラー返却（-32002）と、キャンセル時の終端状態へのポーリング待機の欠落を是正する。
+**Goal:** `tasks/cancel` エンドポイントの実装において、すでに終端状態のタスクに対するエラー返却（-32003）と、キャンセル時の終端状態へのポーリング待機の欠落を是正する。
 
-**Architecture:** `src/server/rpc/handler.ts` の `handleTasksCancel` において、`activeAbortControllers` にコントローラが無いかつ終端状態のタスクには `TASK_CANCELED` エラーを返し、`abort()` 実行後は `TaskStore` を最大5000msポーリングして状態の一貫性を担保する。
+**Architecture:** `src/server/rpc/handler.ts` の `handleTasksCancel` において、`activeAbortControllers` にコントローラが無いかつ終端状態のタスクには `TASK_NOT_CANCELABLE` エラーを返し、`abort()` 実行後は `TaskStore` を最大5000msポーリングして状態の一貫性を担保する。
 
 **Tech Stack:** TypeScript, Node.js v22, Hono, Vitest, pnpm
 
 ---
 
-## Task 1: Fix `TASK_CANCELED` error behavior for already terminal tasks
+## Task 1: Fix `TASK_NOT_CANCELABLE` error behavior for already terminal tasks
 
 **Files:**
 - Modify: `tests/server/index.test.ts`
@@ -64,8 +64,9 @@ Expected: FAIL (現状は正常レスポンスが返るため)
 ```typescript
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
-    const isTerminal = TERMINAL_STATES.has(task.status.state);
-    if (isTerminal) {
+    // Re-check task status to handle race where it might have finished just now
+    const latestTask = await deps.taskStore.get(parsed.data.taskId);
+    if (latestTask && TERMINAL_STATES.has(latestTask.status.state)) {
       return c.json(
         rpcError(
           id,
@@ -91,7 +92,7 @@ Expected: PASS
 
 ```bash
 git add tests/server/index.test.ts src/server/rpc/handler.ts
-git commit -m "fix(server): return TASK_CANCELED error for already terminal tasks in tasks/cancel"
+git commit -m "fix(server): return TASK_NOT_CANCELABLE error for already terminal tasks in tasks/cancel"
 ```
 
 ---
@@ -110,10 +111,12 @@ git commit -m "fix(server): return TASK_CANCELED error for already terminal task
     // The result should be the successfully completed task
     // or if cancel won the race, the canceled task
     if ('result' in bodyCancel) {
-      expect(bodyCancel.result.status.state).toMatch(/COMPLETED|CANCELED|FAILED/);
+      expect(['TASK_STATE_COMPLETED', 'TASK_STATE_CANCELED', 'TASK_STATE_FAILED']).toContain(
+        bodyCancel.result.status.state
+      );
     } else if ('error' in bodyCancel) {
       // Cancel might have completed first, or task might have already finished
-      expect(bodyCancel.error.code).toBe(-32003); // TASK_NOT_CANCELABLE
+      expect(bodyCancel.error.code).toBe(JSON_RPC_ERRORS.TASK_NOT_CANCELABLE);
     } else {
       throw new Error(`Unexpected response format: ${JSON.stringify(bodyCancel)}`);
     }
