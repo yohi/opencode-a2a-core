@@ -13,7 +13,9 @@ describe('defineA2APlugin', () => {
     const schema = z.object({ foo: z.string() });
     const plugin: A2APluginInterface<z.infer<typeof schema>> = {
       id: 'test',
-      version: '0.0.1',
+      name: 'Test Plugin',
+      version: '1.0.0',
+
       configSchema: schema,
       async initialize() {},
       async dispose() {},
@@ -30,6 +32,7 @@ describe('defineA2APlugin', () => {
   it('works with minimal plugin definition (optional config/hooks)', () => {
     const plugin: A2APluginInterface = {
       id: 'minimal',
+      name: 'minimal',
       version: '1.0.0',
       async *execute() {
         yield {
@@ -58,6 +61,7 @@ describe('defineA2APlugin', () => {
     };
     const plugin: A2APluginInterface = {
       id: 'stream-test',
+      name: 'stream-test',
       version: '1.0.0',
       async *execute() {
         yield mockResponse;

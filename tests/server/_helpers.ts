@@ -20,6 +20,7 @@ export function createTestPlugin(
 ): A2APluginInterface {
   return {
     id,
+    name: id,
     version: '1.0.0',
     configSchema: z.object({}).passthrough(),
     async initialize() {},
