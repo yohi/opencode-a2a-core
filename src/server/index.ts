@@ -41,7 +41,8 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
   }
 
   // Validate token is not empty/whitespace-only
-  if (options.auth && options.auth.token.trim().length === 0) {
+  const trimmedToken = options.auth?.token.trim();
+  if (options.auth && (!trimmedToken || trimmedToken.length === 0)) {
     throw new Error('Auth token must not be empty or whitespace-only.');
   }
 
@@ -76,8 +77,8 @@ export function createA2AServer(options: CreateA2AServerOptions): Hono {
   });
 
   // Auth middleware for RPC endpoints
-  if (options.auth) {
-    app.post('/*', bearerAuth(options.auth.token));
+  if (options.auth && trimmedToken) {
+    app.post('/*', bearerAuth(trimmedToken));
   }
 
   // RPC handler

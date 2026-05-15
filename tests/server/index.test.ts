@@ -205,6 +205,22 @@ describe('Auth integration', () => {
     expect(body.error.code).toBe(-32001); // TASK_NOT_FOUND
   });
 
+  it('allows authenticated RPC requests with trimmed token even if configured with whitespace', async () => {
+    const app = createA2AServer({ plugin, auth: { token: '  secret-with-whitespace  ' } });
+    const res = await app.request('/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer secret-with-whitespace',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'tasks/get',
+        params: { taskId: 'nonexistent' },
+      }),
+    });
+    expect(res.status).toBe(200);
+  });
+
   it('AgentCard does not require auth', async () => {
     const app = createA2AServer({ plugin, auth: { token: 'secret' } });
     const res = await app.request('/.well-known/agent.json');
