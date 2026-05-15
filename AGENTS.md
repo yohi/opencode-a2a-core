@@ -14,7 +14,7 @@ A robust, headless execution engine for integrating AI agents as "thin wrappers"
 - **Structure**:
   - `src/core/`: Core protocol (Zod schemas), TaskRunner, TaskStore, Plugin registry.
   - `src/plugins/`: Specific implementations (e.g., `GeminiCliPlugin`).
-  - `src/server/`: HTTP Server Adapter providing Remote Procedure Call (RPC) 2.0 over POST and SSE streaming.
+  - `src/server/`: HTTP Server Adapter providing Remote Procedure Call (JSON-RPC) 2.0 over POST and SSE streaming.
 - **Detailed Specification**: For protocol definitions, plugin interfaces, and server adapter details, see [`SPEC.md`](./SPEC.md).
 
 ## 🛠️ Commands (HOW)
