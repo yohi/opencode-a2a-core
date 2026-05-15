@@ -703,7 +703,7 @@ describe('edge cases and race conditions', () => {
       yield {
         kind: 'status-update',
         status: {
-          state: 'TASK_STATE_IN_PROGRESS',
+          state: 'TASK_STATE_WORKING',
           timestamp: new Date().toISOString(),
         },
       };

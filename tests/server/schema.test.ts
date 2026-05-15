@@ -28,23 +28,23 @@ describe('JsonRpcRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts valid request with null id', () => {
+  it('rejects valid request with null id', () => {
     const result = JsonRpcRequestSchema.safeParse({
       jsonrpc: '2.0',
       id: null,
       method: 'message/send',
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
-  it('accepts valid request with array params', () => {
+  it('rejects valid request with array params', () => {
     const result = JsonRpcRequestSchema.safeParse({
       jsonrpc: '2.0',
       id: 1,
       method: 'test',
       params: [1, 2, 3],
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it('rejects primitive params', () => {

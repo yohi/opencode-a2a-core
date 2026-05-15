@@ -3,25 +3,22 @@ import { MessageSchema } from '../../core/a2a-types.js';
 
 export const JsonRpcRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
-  id: z.union([z.string(), z.number(), z.null()]),
+  id: z.union([z.string(), z.number()]),
   method: z.string(),
-  params: z
-    .union([z.record(z.string(), z.unknown()), z.array(z.unknown())])
-    .optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>;
 
-export const MessageSendParamsSchema = z.object({
+export const MessageParamsSchema = z.object({
   message: MessageSchema,
   contextId: z.string().optional(),
 });
-export type MessageSendParams = z.infer<typeof MessageSendParamsSchema>;
 
-export const MessageStreamParamsSchema = z.object({
-  message: MessageSchema,
-  contextId: z.string().optional(),
-});
-export type MessageStreamParams = z.infer<typeof MessageStreamParamsSchema>;
+export const MessageSendParamsSchema = MessageParamsSchema;
+export type MessageSendParams = z.infer<typeof MessageParamsSchema>;
+
+export const MessageStreamParamsSchema = MessageParamsSchema;
+export type MessageStreamParams = z.infer<typeof MessageParamsSchema>;
 
 export const TasksGetParamsSchema = z.object({
   taskId: z.string(),

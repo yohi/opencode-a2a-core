@@ -14,7 +14,7 @@ export function bearerAuth(expectedToken: string): MiddlewareHandler {
       return c.json({ error: 'Missing or invalid Authorization header' }, 401);
     }
 
-    const token = header.slice(7);
+    const token = header.slice(7).trim();
     const tokenBuf = Buffer.from(token, 'utf-8');
 
     const isLengthMatch = tokenBuf.length === expectedBuf.length;

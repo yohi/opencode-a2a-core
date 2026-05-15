@@ -55,13 +55,6 @@ export function createRpcHandler(deps: ServerDependencies): Handler {
     }
     const { method, params, id } = parsed.data;
 
-    // 3. id が null の場合は通知（notification）として拒否する
-    if (id === null) {
-      return c.json(
-        rpcError(null, JSON_RPC_ERRORS.INVALID_REQUEST, 'Notifications (id: null) are not supported')
-      );
-    }
-
     // 4. Method dispatch
     try {
       switch (method) {
@@ -162,7 +155,8 @@ async function handleMessageStream(
   c.req.raw.signal.addEventListener('abort', onAbort);
   if (c.req.raw.signal.aborted) abortController.abort();
 
-  return streamSSE(c, async (stream) => {
+  try {
+    return streamSSE(c, async (stream) => {
     try {
       const iter = deps.taskRunner.run(deps.pluginId, parsed.data.message, {
         abortSignal: abortController.signal,
@@ -187,6 +181,10 @@ async function handleMessageStream(
       c.req.raw.signal.removeEventListener('abort', onAbort);
     }
   });
+  } catch (err) {
+    c.req.raw.signal.removeEventListener('abort', onAbort);
+    throw err;
+  }
 }
 
 async function handleTasksGet(
@@ -227,13 +225,7 @@ async function handleTasksCancel(
   if (!ac) {
     const isTerminal = TERMINAL_STATES.has(task.status.state);
     if (isTerminal) {
-      return c.json(
-        rpcError(
-          id,
-          JSON_RPC_ERRORS.TASK_CANCELED,
-          'Task is already in terminal state and cannot be canceled'
-        )
-      );
+      return c.json(rpcResult(id, task));
     }
     return c.json(
       rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Abort controller missing for non-terminal task')
@@ -242,20 +234,10 @@ async function handleTasksCancel(
 
   ac.abort();
 
-  // Poll for terminal state
-  const maxWait = 5000;
-  const interval = 50;
-  const start = Date.now();
-  while (Date.now() - start < maxWait) {
-    if (c.req.raw.signal.aborted) {
-      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Client disconnected'));
-    }
-    const current = await deps.taskStore.get(parsed.data.taskId);
-    if (current && TERMINAL_STATES.has(current.status.state)) {
-      return c.json(rpcResult(id, current));
-    }
-    await new Promise((r) => setTimeout(r, interval));
+  const current = await deps.taskStore.get(parsed.data.taskId);
+  if (!current) {
+    return c.json(rpcError(id, JSON_RPC_ERRORS.TASK_NOT_FOUND, 'Task not found after abort'));
   }
 
-  return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Timeout waiting for task to reach terminal state'));
+  return c.json(rpcResult(id, current));
 }

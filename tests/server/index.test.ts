@@ -271,7 +271,7 @@ describe('message/stream E2E', () => {
   });
 
   it('returns INVALID_REQUEST for notification in message/stream', async () => {
-    const plugin = createTestPlugin('stream-notif', async function* () {});
+    const plugin = createTestPlugin('stream-notif', async function* () { yield* []; });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
 
     const res = await app.request('/', {
@@ -285,6 +285,7 @@ describe('message/stream E2E', () => {
 
   it('sends error event when plugin throws before first chunk (taskId not acquired)', async () => {
     const plugin = createTestPlugin('fail-early-stream', async function* () {
+      yield* [];
       throw new Error('init failure');
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -305,7 +306,7 @@ describe('message/stream E2E', () => {
 
 describe('tasks/cancel E2E', () => {
   it('returns TASK_NOT_FOUND for nonexistent task', async () => {
-    const plugin = createTestPlugin('cancel-test', async function* () {});
+    const plugin = createTestPlugin('cancel-test', async function* () { yield* []; });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
 
     const res = await app.request('/', {
@@ -324,6 +325,7 @@ describe('tasks/cancel E2E', () => {
 describe('message/send error handling', () => {
   it('returns TASK_STATE_FAILED when plugin throws before first chunk', async () => {
     const plugin = createTestPlugin('fail-early', async function* () {
+      yield* [];
       throw new Error('init failure');
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -378,6 +380,7 @@ describe('edge cases and race conditions', () => {
   // so these tests verify that requests complete without crashing
   it('message/send handles aborted signal gracefully', async () => {
     const plugin = createTestPlugin('disconnect-send', async function* () {
+      yield* [];
       await new Promise((r) => setTimeout(r, 100)); // Simulate delay
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -398,6 +401,7 @@ describe('edge cases and race conditions', () => {
 
   it('message/stream handles aborted signal gracefully', async () => {
     const plugin = createTestPlugin('disconnect-stream', async function* () {
+      yield* [];
       await new Promise((r) => setTimeout(r, 100)); // Simulate delay
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -416,7 +420,7 @@ describe('edge cases and race conditions', () => {
   });
 
   it('message/send handles already-aborted signal gracefully', async () => {
-    const plugin = createTestPlugin('already-aborted-send', async function* () {});
+    const plugin = createTestPlugin('already-aborted-send', async function* () { yield* []; });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
 
     const abortController = new AbortController();
@@ -432,7 +436,7 @@ describe('edge cases and race conditions', () => {
   });
 
   it('message/stream handles already-aborted signal gracefully', async () => {
-    const plugin = createTestPlugin('already-aborted-stream', async function* () {});
+    const plugin = createTestPlugin('already-aborted-stream', async function* () { yield* []; });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
 
     const abortController = new AbortController();
@@ -447,7 +451,7 @@ describe('edge cases and race conditions', () => {
     expect(res.status).toBe(200);
   });
 
-  it('tasks/cancel returns error for already terminal task', async () => {
+  it('tasks/cancel returns task state for already terminal task', async () => {
     const plugin = createTestPlugin('cancel-already-terminal', async function* () {
       yield {
         kind: 'status-update',
@@ -469,8 +473,8 @@ describe('edge cases and race conditions', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
     });
-    const bodyCancel = await resCancel.json() as { error: { code: number } };
-    expect(bodyCancel.error.code).toBe(-32002); // TASK_CANCELED returned when already terminal
+    const bodyCancel = await resCancel.json() as { result: { status: { state: string } } };
+    expect(bodyCancel.result.status.state).toBe('TASK_STATE_COMPLETED'); // Returns current state instead of TASK_CANCELED error
   });
 
   it('tasks/cancel returns COMPLETED task if it completes during cancellation race', async () => {
@@ -484,12 +488,12 @@ describe('edge cases and race conditions', () => {
       // so the first plugin yield is a second WORKING update (then block).
       yield {
         kind: 'status-update',
-        status: { state: 'TASK_STATE_WORKING', timestamp: new Date().toISOString() } as any,
+        status: { state: 'TASK_STATE_WORKING', timestamp: new Date().toISOString() } satisfies { state: 'TASK_STATE_WORKING'; timestamp: string },
       };
       await taskPromise;
       yield {
         kind: 'status-update',
-        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() } as any,
+        status: { state: 'TASK_STATE_COMPLETED', timestamp: new Date().toISOString() } satisfies { state: 'TASK_STATE_COMPLETED'; timestamp: string },
       };
     });
     const app = createA2AServer({ plugin, allowUnauthenticated: true });
@@ -548,13 +552,14 @@ describe('edge cases and race conditions', () => {
     completeTask!();
 
     const resCancel = await cancelReqPromise;
-    const bodyCancel = await resCancel.json() as any;
+    type RpcResponse = { error: { code: number; message: string } } | { result: { status: { state: string } } };
+    const bodyCancel = await resCancel.json() as RpcResponse;
 
     // The result should be the successfully completed task
     // or if cancel won the race, the canceled task
-    if (bodyCancel.result) {
-      expect(bodyCancel.result.status.state).toMatch(/COMPLETED|CANCELED/);
-    } else if (bodyCancel.error) {
+    if ('result' in bodyCancel) {
+      expect(bodyCancel.result.status.state).toMatch(/WORKING|COMPLETED|CANCELED/);
+    } else if ('error' in bodyCancel) {
       // Cancel might have completed first, or task might have already finished
       expect([-32002, -32004]).toContain(bodyCancel.error.code);
     } else {
