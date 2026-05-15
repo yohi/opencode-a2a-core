@@ -23,11 +23,12 @@
 ```text
 [ Master Agent (Agent A) ]
        │
-       │ (A2A Protocol / Zod Schemas)
+       │ (JSON-RPC 2.0 / SSE)
        ▼
 ┌─────────────────────────────────────────┐
 │  opencode-a2a-core (Agent B / Wrapper)  │
 │                                         │
+│  ├─ HTTP Server Adapter (Hono/RPC)      │
 │  ├─ Core Task Runner (Retry / Halt)     │
 │  └─ Plugin Interface                    │
 │       ├─ Gemini CLI Plugin              │
@@ -49,3 +50,5 @@
    設定可能な最大再試行回数（Exponential Backoff）を備えつつも、**自律的な問題解決（推論の暴走）をシステムレベルで禁止**。一時的なエラーは上限まで再試行しますが、`NonRetriableError` の発生時や再試行上限に到達した場合は直ちに処理を停止し、マスターへ判断を委ねるフェイルセーフ設計を採用しています。
 4. **🐳 再現性の担保 (Devcontainer Forced)**
    環境依存のバグを排除するため、開発・テスト・静的解析はすべて提供されるDevcontainer環境内で完結するよう設計されています。
+5. **🌐 HTTP Server Adapter (Built-in)**
+   JSON-RPC 2.0 と SSE (Server-Sent Events) に対応した Hono ベースのサーバーアダプタを標準搭載。Bearer 認証や AgentCard を備え、すぐに外部からの通信を受け付け可能です。

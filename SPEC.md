@@ -66,23 +66,24 @@ A2A v1.0.0 をベースにしつつ、本実装に合わせて拡張されてい
 - ミューテーション（意図しない状態変更によるバグ）を防ぐため、内部データの保存・取得時には `structuredClone` によるディープコピーが徹底されています。
 - `StreamResponse` のチャンクを受信すると、種類に応じて自動的にタスクデータの `artifacts` や `statusHistory`、`history` へ安全に追記されます。
 
-## 7. 今後の拡張 (HTTP サーバー層 / Server Adapter)
+## 7. HTTP サーバー層 (Server Adapter)
 
-次のフェーズとして、本コア基盤をラップする標準 HTTP サーバーアダプタ (`src/server/`) の実装が計画されています。
+本コア基盤をラップし、外部クライアントと JSON-RPC 2.0 / SSE で安全に通信するための HTTP サーバーアダプタ (`src/server/`) を提供しています。
 
-### 予定される機能
+### アーキテクチャと機能
 
 - **HTTP サーバーの実装 (Hono ベース)**:
-  - `Hono` を使用して、コア層（`TaskRunner` など）をラップする HTTP アダプタを作成する。
+  - `Hono` を使用して、コア層（`TaskRunner` など）をラップするファクトリ関数 `createA2AServer()` を提供します。1サーバー = 1プラグインモデルを採用しています。
 - **JSON-RPC 2.0 エンドポイント (`POST /`)**:
-  - A2A v1.0.0 仕様に準拠し、以下のメソッドを提供する：
-    - `message/send`: タスクの生成・完了待機
-    - `message/stream`: SSEによるストリーミング応答
-    - `tasks/get`: タスク状態の取得
-    - `tasks/cancel`: AbortController を介したタスクのキャンセル
+  - Zod による厳格なスキーマ検証を行い、以下のメソッドを提供します：
+    - `message/send`: タスクの生成と同期的な完了待機。
+    - `message/stream`: タスク生成と SSE によるストリーミング応答。
+    - `tasks/get`: タスク状態の取得。
+    - `tasks/cancel`: AbortController を介したタスクのキャンセルと終端状態への待機。
+  - エラーコードとして、標準（`PARSE_ERROR`, `INVALID_REQUEST`, `METHOD_NOT_FOUND`, `INVALID_PARAMS`, `INTERNAL_ERROR`）および独自（`TASK_NOT_FOUND`, `TASK_CANCELED`, `TASK_NOT_CANCELABLE`）を定義しています。
 - **SSE (Server-Sent Events) 対応**:
-  - `TaskRunner` が返す `AsyncIterable<StreamResponse>` を SSE 形式 (`event: <kind>`, `data: <json>`) でクライアントにストリーム配信する。
+  - `message/stream` 呼び出し時、`TaskRunner` が返す `AsyncIterable<StreamResponse>` を SSE 形式 (`event: <kind>`, `data: <json>`) でクライアントに配信します。クライアント切断時は自動でタスクの実行を abort します。
 - **AgentCard (`GET /.well-known/agent.json`)**:
-  - プラグインのメタデータ（対応スキルなど）を集約して、エージェントの能力を公開するエンドポイント。
+  - プラグインのメタデータ（対応スキルなど）を集約して、エージェントの能力を公開するエンドポイント。リバースプロキシ環境向けに `trustProxy` オプションを用いた `X-Forwarded-*` ヘッダーによる URL 解決をサポートします。
 - **Bearer 認証**:
-  - 起動時に設定されたトークンを用いて認証を行う。タイミング攻撃対策として `crypto.timingSafeEqual` を用いた固定長バッファでのセキュアな比較を実施する。
+  - 起動時に設定されたトークンを用いて全 RPC エンドポイントの認証を行います。タイミング攻撃対策として `crypto.timingSafeEqual` を用いた固定長バッファでのセキュアな比較を実施します。
