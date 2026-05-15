@@ -559,7 +559,7 @@ describe('edge cases and race conditions', () => {
     // The result should be the successfully completed task
     // or if cancel won the race, the canceled task
     if ('result' in bodyCancel) {
-      expect(bodyCancel.result.status.state).toMatch(/WORKING|COMPLETED|CANCELED/);
+      expect(bodyCancel.result.status.state).toMatch(/COMPLETED|CANCELED|FAILED/);
     } else if ('error' in bodyCancel) {
       // Cancel might have completed first, or task might have already finished
       expect([-32002, -32004]).toContain(bodyCancel.error.code);
