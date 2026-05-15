@@ -451,7 +451,7 @@ describe('edge cases and race conditions', () => {
     expect(res.status).toBe(200);
   });
 
-  it('tasks/cancel returns task state for already terminal task', async () => {
+  it('tasks/cancel returns TASK_CANCELED error for already terminal task', async () => {
     const plugin = createTestPlugin('cancel-already-terminal', async function* () {
       yield {
         kind: 'status-update',
@@ -473,8 +473,9 @@ describe('edge cases and race conditions', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
     });
-    const bodyCancel = await resCancel.json() as { result: { status: { state: string } } };
-    expect(bodyCancel.result.status.state).toBe('TASK_STATE_COMPLETED'); // Returns current state instead of TASK_CANCELED error
+    const bodyCancel = await resCancel.json() as { error: { code: number; message: string } };
+    expect(bodyCancel.error).toBeDefined();
+    expect(bodyCancel.error.code).toBe(-32002); // JSON_RPC_ERRORS.TASK_CANCELED
   });
 
   it('tasks/cancel returns COMPLETED task if it completes during cancellation race', async () => {
