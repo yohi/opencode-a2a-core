@@ -322,7 +322,7 @@ describe('tasks/cancel E2E', () => {
 });
 
 describe('message/send error handling', () => {
-  it('returns INTERNAL_ERROR when plugin throws before first chunk', async () => {
+  it('returns TASK_STATE_FAILED when plugin throws before first chunk', async () => {
     const plugin = createTestPlugin('fail-early', async function* () {
       throw new Error('init failure');
     });
@@ -503,16 +503,21 @@ describe('edge cases and race conditions', () => {
     });
 
     var taskId = '';
-    // Read the first chunk from the SSE stream to get the task event
+    // Read from the SSE stream to get the task event
     if (streamRes.body) {
       var reader = streamRes.body.getReader();
       var decoder = new TextDecoder();
-      var first = await reader.read();
-      if (!first.done) {
-        var chunk = decoder.decode(first.value, { stream: true });
-        // Parse task ID from SSE data: event: task\\ndata: {...\"task\":{\"id\":\"...\"}...}
-        var idMatch = chunk.match(/"id":"([^"]+)"/);
-        if (idMatch) taskId = idMatch[1];
+      var buffer = '';
+      while (true) {
+        var { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // Parse task ID from SSE data: event: task\ndata: {..."task":{"id":"..."}...}
+        var idMatch = buffer.match(/"id":"([^"]+)"/);
+        if (idMatch) {
+          taskId = idMatch[1];
+          break;
+        }
       }
       // Cancel the reader to close the stream (we don't need the full SSE body)
       reader.cancel();

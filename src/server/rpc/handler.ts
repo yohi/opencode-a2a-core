@@ -136,11 +136,7 @@ async function handleMessageSend(
     if (!task) {
       return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error: Task not found after failure'));
     }
-    if (task.status.state === 'TASK_STATE_FAILED') {
-      const part = task.status.message?.parts?.[0];
-      const errorMessage = (part?.kind === 'text') ? part.text : 'Task failed';
-      return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, errorMessage));
-    }
+    // Task exists, return it even if failed
     return c.json(rpcResult(id, task));
   } finally {
     if (taskId) deps.activeAbortControllers.delete(taskId);
@@ -232,7 +228,7 @@ async function handleTasksCancel(
     const isTerminal = TERMINAL_STATES.has(task.status.state);
     if (isTerminal) {
       return c.json(
-        rpcError(id, JSON_RPC_ERRORS.INVALID_REQUEST, 'Task is already in terminal state and cannot be canceled')
+        rpcError(id, JSON_RPC_ERRORS.TASK_CANCELED, 'Task is already in terminal state and cannot be canceled')
       );
     }
     return c.json(
