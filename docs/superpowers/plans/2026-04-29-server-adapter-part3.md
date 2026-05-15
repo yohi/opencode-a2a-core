@@ -690,7 +690,8 @@ describe('edge cases and race conditions', () => {
       }),
     });
     const bodyCancel = await resCancel.json();
-    expect(bodyCancel.error.code).toBe(-32002); // TASK_CANCELED returned when already terminal
+    expect(bodyCancel.result).toBeDefined();
+    expect(bodyCancel.result.state).toBe('TASK_STATE_COMPLETED');
   });
 
   it('tasks/cancel returns COMPLETED task if it completes during cancellation race', async () => {

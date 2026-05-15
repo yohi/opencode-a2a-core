@@ -72,9 +72,9 @@ export function createRpcHandler(deps: ServerDependencies): Handler {
           );
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
+      deps.logger.error('Internal server error', { error: err });
       return c.json(
-        rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, `Internal error: ${errorMessage}`)
+        rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal server error')
       );
     }
   };
