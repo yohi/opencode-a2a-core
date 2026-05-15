@@ -447,7 +447,7 @@ describe('edge cases and race conditions', () => {
     expect(res.status).toBe(200);
   });
 
-  it('tasks/cancel returns TASK_CANCELED for already terminal task', async () => {
+  it('tasks/cancel returns error for already terminal task', async () => {
     const plugin = createTestPlugin('cancel-already-terminal', async function* () {
       yield {
         kind: 'status-update',
@@ -470,7 +470,7 @@ describe('edge cases and race conditions', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
     });
     const bodyCancel = await resCancel.json() as { error: { code: number } };
-    expect(bodyCancel.error.code).toBe(-32002); // TASK_CANCELED returned when already terminal
+    expect(bodyCancel.error.code).toBe(-32004); // TASK_ALREADY_COMPLETED
   });
 
   it('tasks/cancel returns COMPLETED task if it completes during cancellation race', async () => {
@@ -502,22 +502,35 @@ describe('edge cases and race conditions', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: { message: mkMessage() } }),
     });
 
-    var taskId = '';
+    let taskId = '';
     // Read from the SSE stream to get the task event
     if (streamRes.body) {
-      var reader = streamRes.body.getReader();
-      var decoder = new TextDecoder();
-      var buffer = '';
+      const reader = streamRes.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
       while (true) {
-        var { done, value } = await reader.read();
+        const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        // Parse task ID from SSE data: event: task\ndata: {..."task":{"id":"..."}...}
-        var idMatch = buffer.match(/"id":"([^"]+)"/);
-        if (idMatch) {
-          taskId = idMatch[1];
-          break;
+        // SSE event contains "data: {JSON}\n\n"
+        if (buffer.includes('\n\n')) {
+          const events = buffer.split('\n\n');
+          for (const event of events) {
+            const dataLine = event.split('\n').find((l) => l.startsWith('data: '));
+            if (dataLine) {
+              try {
+                const data = JSON.parse(dataLine.slice(6));
+                if (data.task && data.task.id) {
+                  taskId = data.task.id;
+                  break;
+                }
+              } catch {
+                // Ignore partial JSON
+              }
+            }
+          }
         }
+        if (taskId) break;
       }
       // Cancel the reader to close the stream (we don't need the full SSE body)
       reader.cancel();
@@ -525,7 +538,7 @@ describe('edge cases and race conditions', () => {
     expect(taskId).toBeTruthy();
 
     // Send cancel request, but do not await yet
-    var cancelReqPromise = app.request('/', {
+    const cancelReqPromise = app.request('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId: taskId } }),
@@ -534,8 +547,8 @@ describe('edge cases and race conditions', () => {
     // Simulate task completing just as cancel is processing
     completeTask!();
 
-    var resCancel = await cancelReqPromise;
-    var bodyCancel = await resCancel.json() as any;
+    const resCancel = await cancelReqPromise;
+    const bodyCancel = await resCancel.json() as any;
 
     // The result should be the successfully completed task
     // or if cancel won the race, the canceled task
@@ -544,6 +557,8 @@ describe('edge cases and race conditions', () => {
     } else if (bodyCancel.error) {
       // Cancel might have completed first
       expect(bodyCancel.error.code).toBe(-32002);
+    } else {
+      throw new Error(`Unexpected response format: ${JSON.stringify(bodyCancel)}`);
     }
   }, 15000);
 });
