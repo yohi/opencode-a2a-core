@@ -555,8 +555,8 @@ describe('edge cases and race conditions', () => {
     if (bodyCancel.result) {
       expect(bodyCancel.result.status.state).toMatch(/COMPLETED|CANCELED/);
     } else if (bodyCancel.error) {
-      // Cancel might have completed first
-      expect(bodyCancel.error.code).toBe(-32002);
+      // Cancel might have completed first, or task might have already finished
+      expect([-32002, -32004]).toContain(bodyCancel.error.code);
     } else {
       throw new Error(`Unexpected response format: ${JSON.stringify(bodyCancel)}`);
     }
