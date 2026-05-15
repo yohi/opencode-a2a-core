@@ -235,7 +235,7 @@ describe('Integration flows', () => {
     reader.releaseLock();
   }, 10000);
 
-  it('tasks/cancel returns INVALID_REQUEST for already terminal task', async () => {
+  it('tasks/cancel returns TASK_CANCELED for already terminal task', async () => {
     const { app, deps } = setupApp();
     const task = await deps.taskStore.create({});
     await deps.taskStore.updateStatus(task.id, {
@@ -255,7 +255,7 @@ describe('Integration flows', () => {
     });
 
     const body = (await res.json()) as { error: { code: number } };
-    expect(body.error.code).toBe(JSON_RPC_ERRORS.INVALID_REQUEST);
+    expect(body.error.code).toBe(JSON_RPC_ERRORS.TASK_CANCELED);
   });
 
   it('tasks/cancel returns error when cancellation times out', async () => {
@@ -277,7 +277,7 @@ describe('Integration flows', () => {
     });
 
     const body = (await res.json()) as { error: { code: number; message: string } };
-    expect(body.error.code).toBe(JSON_RPC_ERRORS.CANCEL_TIMEOUT);
+    expect(body.error.code).toBe(JSON_RPC_ERRORS.INTERNAL_ERROR);
     expect(body.error.message).toContain('Timeout');
   }, 10000);
 });

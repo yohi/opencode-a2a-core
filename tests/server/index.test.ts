@@ -470,7 +470,7 @@ describe('edge cases and race conditions', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tasks/cancel', params: { taskId } }),
     });
     const bodyCancel = await resCancel.json() as { error: { code: number } };
-    expect(bodyCancel.error.code).toBe(-32004); // TASK_ALREADY_COMPLETED
+    expect(bodyCancel.error.code).toBe(-32002); // TASK_CANCELED returned when already terminal
   });
 
   it('tasks/cancel returns COMPLETED task if it completes during cancellation race', async () => {

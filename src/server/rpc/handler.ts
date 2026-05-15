@@ -225,19 +225,14 @@ async function handleTasksCancel(
 
   const ac = deps.activeAbortControllers.get(parsed.data.taskId);
   if (!ac) {
-    if (task.status.state === 'TASK_STATE_COMPLETED') {
+    const isTerminal = TERMINAL_STATES.has(task.status.state);
+    if (isTerminal) {
       return c.json(
-        rpcError(id, JSON_RPC_ERRORS.TASK_ALREADY_COMPLETED, 'Task is already completed')
-      );
-    }
-    if (task.status.state === 'TASK_STATE_FAILED') {
-      return c.json(
-        rpcError(id, JSON_RPC_ERRORS.TASK_ALREADY_FAILED, 'Task is already failed')
-      );
-    }
-    if (task.status.state === 'TASK_STATE_CANCELED') {
-      return c.json(
-        rpcError(id, JSON_RPC_ERRORS.TASK_CANCELED, 'Task is already canceled')
+        rpcError(
+          id,
+          JSON_RPC_ERRORS.TASK_CANCELED,
+          'Task is already in terminal state and cannot be canceled'
+        )
       );
     }
     return c.json(
@@ -262,5 +257,5 @@ async function handleTasksCancel(
     await new Promise((r) => setTimeout(r, interval));
   }
 
-  return c.json(rpcError(id, JSON_RPC_ERRORS.CANCEL_TIMEOUT, 'Timeout waiting for task to reach terminal state'));
+  return c.json(rpcError(id, JSON_RPC_ERRORS.INTERNAL_ERROR, 'Timeout waiting for task to reach terminal state'));
 }

@@ -13,7 +13,7 @@
 - Create: `src/server/index.ts`
 - Test: `tests/server/index.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // tests/server/index.test.ts
@@ -240,12 +240,12 @@ describe('message/send E2E', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/index.test.ts`
 Expected: FAIL
 
-- [ ] **Step 3: Write implementation**
+- [x] **Step 3: Write implementation**
 
 ```typescript
 // src/server/index.ts
@@ -379,26 +379,26 @@ function resolveBaseUrl(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/index.test.ts`
 Expected: ALL PASS
 
-- [ ] **Step 5: Lint and Typecheck (Devcontainer内)**
+- [x] **Step 5: Lint and Typecheck (Devcontainer内)**
 
 ```bash
 pnpm lint
 pnpm typecheck
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/server/index.ts tests/server/index.test.ts
 git commit -m "feat(server): add createA2AServer factory with AgentCard endpoint"
 ```
 
-- [ ] **Step 7: Draft PR to Phase Base**
+- [x] **Step 7: Draft PR to Phase Base**
 
 `feature/phase1-task4_server-factory` → `feature/phase1_server-adapter__base` へ Draft PR を作成。
 
@@ -412,7 +412,7 @@ git commit -m "feat(server): add createA2AServer factory with AgentCard endpoint
 
 - Modify: `tests/server/index.test.ts` (追加テスト)
 
-- [ ] **Step 1: Add stream and cancel tests**
+- [x] **Step 1: Add stream and cancel tests**
 
 以下のテストを `tests/server/index.test.ts` の末尾に追加:
 
@@ -778,12 +778,12 @@ describe('edge cases and race conditions', () => {
 });
 ```
 
-- [ ] **Step 2: Run all server tests**
+- [x] **Step 2: Run all server tests**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/`
 Expected: ALL PASS
 
-- [ ] **Step 3: Run full test suite (Devcontainer内)**
+- [x] **Step 3: Run full test suite (Devcontainer内)**
 
 ```bash
 pnpm lint
@@ -791,7 +791,7 @@ pnpm typecheck
 pnpm test
 ```
 
-- [ ] **Step 4: Add server module to public exports**
+- [x] **Step 4: Add server module to public exports**
 
 ```typescript
 // src/index.ts — append this line
@@ -801,19 +801,19 @@ export {
 } from './server/index.js';
 ```
 
-- [ ] **Step 5: Re-run full suite**
+- [x] **Step 5: Re-run full suite**
 
 Run (Devcontainer内): `pnpm test`
 Expected: ALL PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/server/index.test.ts src/index.ts
 git commit -m "feat(server): add stream/cancel integration tests and public export"
 ```
 
-- [ ] **Step 7: Draft PR to Phase Base**
+- [x] **Step 7: Draft PR to Phase Base**
 
 `feature/phase1-task5_stream-cancel` → `feature/phase1_server-adapter__base` へ Draft PR を作成。
 
@@ -823,5 +823,5 @@ git commit -m "feat(server): add stream/cancel integration tests and public expo
 
 すべての Task PR が `feature/phase1_server-adapter__base` にマージされた後:
 
-- [ ] `feature/phase1_server-adapter__base` → `master` へ Draft PR を作成
-- [ ] 全テスト、lint、typecheck が Devcontainer 内で PASS することを最終確認
+- [x] `feature/phase1_server-adapter__base` → `master` へ Draft PR を作成
+- [x] 全テスト、lint、typecheck が Devcontainer 内で PASS することを最終確認

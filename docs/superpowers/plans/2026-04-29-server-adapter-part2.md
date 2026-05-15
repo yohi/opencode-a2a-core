@@ -13,7 +13,7 @@
 - Create: `src/server/middleware/auth.ts`
 - Test: `tests/server/auth.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // tests/server/auth.test.ts
@@ -70,12 +70,12 @@ describe('bearerAuth middleware', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/auth.test.ts`
 Expected: FAIL — モジュール不在
 
-- [ ] **Step 3: Write implementation**
+- [x] **Step 3: Write implementation**
 
 ```typescript
 // src/server/middleware/auth.ts
@@ -109,26 +109,26 @@ export function bearerAuth(expectedToken: string): MiddlewareHandler {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/auth.test.ts`
 Expected: ALL PASS
 
-- [ ] **Step 5: Lint and Typecheck (Devcontainer内)**
+- [x] **Step 5: Lint and Typecheck (Devcontainer内)**
 
 ```bash
 pnpm lint
 pnpm typecheck
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/server/middleware/auth.ts tests/server/auth.test.ts
 git commit -m "feat(server): add timing-safe Bearer auth middleware"
 ```
 
-- [ ] **Step 7: Draft PR to Phase Base**
+- [x] **Step 7: Draft PR to Phase Base**
 
 `feature/phase1-task2_auth-middleware` → `feature/phase1_server-adapter__base` へ Draft PR を作成。
 
@@ -144,7 +144,7 @@ git commit -m "feat(server): add timing-safe Bearer auth middleware"
 - Create: `tests/server/_helpers.ts`
 - Test: `tests/server/handler.test.ts`
 
-- [ ] **Step 1: Create test helpers**
+- [x] **Step 1: Create test helpers**
 
 ```typescript
 // tests/server/_helpers.ts
@@ -197,7 +197,7 @@ export function rpcRequest(
 }
 ```
 
-- [ ] **Step 2: Write the failing test for handler**
+- [x] **Step 2: Write the failing test for handler**
 
 ```typescript
 // tests/server/handler.test.ts
@@ -328,12 +328,12 @@ describe('tasks/get handler', () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/handler.test.ts`
 Expected: FAIL — `createRpcHandler` が存在しない
 
-- [ ] **Step 4: Write handler implementation**
+- [x] **Step 4: Write handler implementation**
 
 ```typescript
 // src/server/rpc/handler.ts
@@ -639,25 +639,25 @@ async function handleTasksCancel(
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run (Devcontainer内): `pnpm vitest run tests/server/handler.test.ts`
 Expected: ALL PASS
 
-- [ ] **Step 6: Lint and Typecheck (Devcontainer内)**
+- [x] **Step 6: Lint and Typecheck (Devcontainer内)**
 
 ```bash
 pnpm lint
 pnpm typecheck
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/server/rpc/handler.ts tests/server/_helpers.ts tests/server/handler.test.ts
 git commit -m "feat(server): add JSON-RPC method dispatcher with validation"
 ```
 
-- [ ] **Step 8: Draft PR to Phase Base**
+- [x] **Step 8: Draft PR to Phase Base**
 
 `feature/phase1-task3_rpc-handler` → `feature/phase1_server-adapter__base` へ Draft PR を作成。
